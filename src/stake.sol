@@ -10,6 +10,7 @@ import "@aave/periphery-v3/contracts/rewards/interfaces/IRewardsController.sol";
 import "./dlp.sol";
 
 contract DlpStaker is Ownable {
+  uint public constant DURATION = 30 days;
   address public zap;
   address public rewardsCtrler;
 
@@ -33,11 +34,7 @@ contract DlpStaker is Ownable {
     _;
   }
 
-  constructor(
-    address _nftMgr,
-    address _zap,
-    address _rewardsCtrler
-  ) Ownable(msg.sender) {
+  constructor(address _nftMgr, address _zap, address _rewardsCtrler) Ownable(msg.sender) {
     nftMgr = INFTMgr(_nftMgr);
     zap = _zap;
     rewardsCtrler = _rewardsCtrler;
@@ -50,24 +47,11 @@ contract DlpStaker is Ownable {
    * @param pool which pool that the liquidity is belong to
    * @param liquidity amount
    * @param tokenId  nft token id
-   * @param duration  lock duration
    */
-  function lockLiquidity(
-    address user,
-    address pool,
-    uint liquidity,
-    uint tokenId,
-    uint duration
-  ) external {
+  function lockLiquidity(address user, address pool, uint liquidity, uint tokenId) external {
     require(msg.sender == zap || msg.sender == user, "Dlp: not zap or user");
     require(dlpParams[tokenId].user == address(0), "Dlp: already locked");
-    dlpParams[tokenId] = DlpParams(
-      user,
-      pool,
-      liquidity,
-      block.timestamp,
-      duration
-    );
+    dlpParams[tokenId] = DlpParams(user, pool, liquidity, block.timestamp, DURATION);
     address dlpToken = dlpTokens[pool];
     if (dlpToken == address(0)) {
       dlpToken = address(new DlpToken("tLend DLP", "DLP", rewardsCtrler, pool));
@@ -86,10 +70,7 @@ contract DlpStaker is Ownable {
   function unlockLiquidity(uint tokenId) external {
     DlpParams memory params = dlpParams[tokenId];
     require(params.user == msg.sender, "Dlp: not owner");
-    require(
-      block.timestamp - params.start > params.duration,
-      "Dlp: not expired"
-    );
+    require(block.timestamp - params.start > params.duration, "Dlp: not expired");
     delete dlpParams[tokenId];
     nftMgr.safeTransferFrom(address(this), msg.sender, tokenId);
   }
