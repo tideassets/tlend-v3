@@ -12,16 +12,16 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {IPool, DataTypes} from "@aave/core-v3/contracts/interfaces/IPool.sol";
 
-import {INFTMgr} from "./interface/nft.sol";
-import {IV3Pool} from "./interface/v3pool.sol";
-import {ISwapRouter} from "./interface/swaprouter.sol";
+import {ISwapNFT} from "./interface/swapNFT.sol";
+import {ISwapPool} from "./interface/swapPool.sol";
+import {ISwapRouter} from "./interface/swapRouter.sol";
 
 interface IStaker {
   function lockLiquidity(address user, address pool, uint liquidity, uint tokenId) external;
 }
 
-/// @title LockZap contract
-contract LockZap is Initializable, OwnableUpgradeable, PausableUpgradeable {
+/// @title Zap contract
+contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
   using SafeERC20 for IERC20;
 
   /// @notice Borrow rate mode
@@ -46,7 +46,7 @@ contract LockZap is Initializable, OwnableUpgradeable, PausableUpgradeable {
   /// @notice tswap AMM router
   address public swapRouter;
   /// @notice liquidity mgr
-  address public nftMgr;
+  ISwapNFT public nft;
   /// @notice staker contract
   address public staker;
 
@@ -71,18 +71,18 @@ contract LockZap is Initializable, OwnableUpgradeable, PausableUpgradeable {
     IPool _lendingPool,
     address _staker,
     address _swapRouter,
-    address _nftMgr
+    address _nft
   ) external initializer {
     if (address(_lendingPool) == address(0)) revert AddressZero();
     if (_swapRouter == address(0)) revert AddressZero();
-    if (_nftMgr == address(0)) revert AddressZero();
+    if (_nft == address(0)) revert AddressZero();
 
     __Ownable_init(msg.sender);
     __Pausable_init();
 
     lendingPool = _lendingPool;
     swapRouter = _swapRouter;
-    nftMgr = _nftMgr;
+    nft = ISwapNFT(_nft);
     staker = _staker;
   }
 
@@ -98,9 +98,9 @@ contract LockZap is Initializable, OwnableUpgradeable, PausableUpgradeable {
     swapRouter = _swapRouter;
   }
 
-  function setLiquidityMgr(address _nftMgr) external onlyOwner {
-    if (_nftMgr == address(0)) revert AddressZero();
-    nftMgr = _nftMgr;
+  function setLiquidityMgr(address _nft) external onlyOwner {
+    if (_nft == address(0)) revert AddressZero();
+    nft = ISwapNFT(_nft);
   }
 
   /**
@@ -208,7 +208,6 @@ contract LockZap is Initializable, OwnableUpgradeable, PausableUpgradeable {
     address recipient;
   }
 
-  //
   function zap(ZapInfo memory zi) external returns (uint) {
     if (zi.amountA == 0 || zi.amountB == 0) revert InvalidAmount();
 
@@ -217,7 +216,7 @@ contract LockZap is Initializable, OwnableUpgradeable, PausableUpgradeable {
       : (zi.tokenB, zi.tokenA);
     if (lpPools[token0][token1] == address(0)) revert InvalidTokens();
 
-    IV3Pool pool = IV3Pool(lpPools[token0][token1]);
+    ISwapPool pool = ISwapPool(lpPools[token0][token1]);
     _zap0(zi, pool.fee());
 
     address recipient = zi.stake ? address(this) : zi.recipient;
@@ -227,24 +226,49 @@ contract LockZap is Initializable, OwnableUpgradeable, PausableUpgradeable {
     IERC20(zi.tokenB).safeTransfer(msg.sender, zi.amountB - amount1);
 
     if (zi.stake) {
-      INFTMgr(nftMgr).approve(staker, tokenId);
+      nft.approve(staker, tokenId);
       IStaker(staker).lockLiquidity(msg.sender, address(pool), liquidity, tokenId);
     }
     emit Zapped(msg.sender, zi.tokenA, zi.tokenB, amount0, amount1);
     return liquidity;
   }
 
+  function unzap(uint tokenId, address recipient) external returns (uint, uint) {
+    require(nft.ownerOf(tokenId) == msg.sender, "Not owner of tokenID");
+    (, , , , , , , uint128 liquidity, , , , ) = nft.positions(tokenId);
+    ISwapNFT.DecreaseLiquidityParams memory param = ISwapNFT.DecreaseLiquidityParams({
+      tokenId: tokenId,
+      liquidity: liquidity,
+      amount0Min: 0,
+      amount1Min: 0,
+      deadline: block.timestamp
+    });
+
+    nft.decreaseLiquidity(param);
+    (uint amount0, uint amount1) = nft.collect(
+      ISwapNFT.CollectParams({
+        tokenId: tokenId,
+        recipient: recipient,
+        amount0Max: type(uint128).max,
+        amount1Max: type(uint128).max
+      })
+    );
+
+    nft.burn(tokenId);
+    return (amount0, amount1);
+  }
+
   function _zap1(
     ZapInfo memory zi,
-    IV3Pool pool,
+    ISwapPool pool,
     address recipient
   ) internal returns (uint, uint128, uint, uint) {
-    INFTMgr.MintParams memory params;
+    ISwapNFT.MintParams memory params;
     {
       IERC20(zi.tokenA).forceApprove(address(pool), zi.amountA);
       IERC20(zi.tokenB).forceApprove(address(pool), zi.amountB);
       uint24 pts = uint24(pool.tickSpacing()) * poolsTickSpacing[address(pool)];
-      params = INFTMgr.MintParams({
+      params = ISwapNFT.MintParams({
         token0: zi.tokenA,
         token1: zi.tokenB,
         fee: pool.fee(),
@@ -258,7 +282,7 @@ contract LockZap is Initializable, OwnableUpgradeable, PausableUpgradeable {
         deadline: block.timestamp
       });
     }
-    return INFTMgr(nftMgr).mint(params);
+    return nft.mint(params);
   }
 
   /**

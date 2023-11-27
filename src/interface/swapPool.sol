@@ -5,7 +5,7 @@
 
 pragma solidity ^0.8.20;
 
-interface IV3Pool {
+interface ISwapPool {
     function factory() external view returns (address);
 
     /// @notice The first of the two tokens of the pool, sorted by address

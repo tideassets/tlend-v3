@@ -9,7 +9,7 @@ import {IScaledBalanceToken} from "@aave/core-v3/contracts/interfaces/IScaledBal
 import "@aave/periphery-v3/contracts/rewards/interfaces/IRewardsController.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "./interface/nft.sol";
+import "./interface/swapNFT.sol";
 
 contract DlpToken is ERC20, Ownable, IScaledBalanceToken {
   address public pool;

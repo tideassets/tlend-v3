@@ -19,7 +19,7 @@ contract DlpStaker is Ownable {
   // pool => DlpToken
   mapping(address => address) public dlpTokens;
 
-  INFTMgr public nftMgr;
+  ISwapNFT public nft;
 
   struct DlpParams {
     address user;
@@ -35,7 +35,7 @@ contract DlpStaker is Ownable {
   }
 
   constructor(address _nftMgr, address _zap, address _rewardsCtrler) Ownable(msg.sender) {
-    nftMgr = INFTMgr(_nftMgr);
+    nft = ISwapNFT(_nftMgr);
     zap = _zap;
     rewardsCtrler = _rewardsCtrler;
   }
@@ -59,7 +59,7 @@ contract DlpStaker is Ownable {
     }
     DlpToken(dlpToken).mint(user, liquidity);
 
-    nftMgr.safeTransferFrom(msg.sender, address(this), tokenId);
+    nft.safeTransferFrom(msg.sender, address(this), tokenId);
     emit DlpLocked(pool, liquidity, block.timestamp);
   }
 
@@ -67,11 +67,11 @@ contract DlpStaker is Ownable {
    * @notice unlock liquidity
    * @param tokenId  nft token id
    */
-  function unlockLiquidity(uint tokenId) external {
+  function unlockLiquidity(uint tokenId, address recipient) external {
     DlpParams memory params = dlpParams[tokenId];
     require(params.user == msg.sender, "Dlp: not owner");
     require(block.timestamp - params.start > params.duration, "Dlp: not expired");
     delete dlpParams[tokenId];
-    nftMgr.safeTransferFrom(address(this), msg.sender, tokenId);
+    nft.safeTransferFrom(address(this), recipient, tokenId);
   }
 }
