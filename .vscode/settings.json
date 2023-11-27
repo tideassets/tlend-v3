@@ -1,0 +1,6 @@
+{
+  "editor.tabSize": 2,
+  "editor.indentSize": "tabSize",
+  "editor.acceptSuggestionOnEnter": "smart",
+  "prettier.useTabs": false
+}
