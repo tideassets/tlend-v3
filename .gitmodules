@@ -13,3 +13,6 @@
 [submodule "lib/tfund"]
 	path = lib/tfund
 	url = https://github.com/tideassets/tfund
+[submodule "lib/solidity-examples"]
+	path = lib/solidity-examples
+	url = https://github.com/LayerZero-Labs/solidity-examples
