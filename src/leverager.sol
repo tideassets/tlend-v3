@@ -30,8 +30,7 @@ contract Leverager is OwnableUpgradeable {
   uint256 public constant MAX_REASONABLE_FEE = 100;
 
   /// @notice Mock ETH address
-  address public constant API_ETH_MOCK_ADDRESS =
-    0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+  address public constant API_ETH_MOCK_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
   /// @notice LTV Calculation precision
   uint256 public constant TWO_POW_16 = 2 ** 16;
@@ -172,9 +171,7 @@ contract Leverager is OwnableUpgradeable {
    * @return varaiableDebtToken address of the asset
    **/
   function getVDebtToken(address asset) external view returns (address) {
-    DataTypes.ReserveData memory reserveData = lendingPool.getReserveData(
-      asset
-    );
+    DataTypes.ReserveData memory reserveData = lendingPool.getReserveData(asset);
     return reserveData.variableDebtTokenAddress;
   }
 
@@ -223,8 +220,7 @@ contract Leverager is OwnableUpgradeable {
     uint256 loopCount,
     bool isBorrow
   ) internal {
-    if (!(borrowRatio > 0 && borrowRatio <= RATIO_DIVISOR))
-      revert InvalidRatio();
+    if (!(borrowRatio > 0 && borrowRatio <= RATIO_DIVISOR)) revert InvalidRatio();
     if (loopCount == 0) revert InvalidLoopCount();
     uint16 referralCode = 0;
     uint256 fee;
@@ -246,13 +242,7 @@ contract Leverager is OwnableUpgradeable {
 
     for (uint256 i = 0; i < loopCount; ) {
       amount = (amount * borrowRatio) / RATIO_DIVISOR;
-      lendingPool.borrow(
-        asset,
-        amount,
-        interestRateMode,
-        referralCode,
-        msg.sender
-      );
+      lendingPool.borrow(asset, amount, interestRateMode, referralCode, msg.sender);
 
       fee = (amount * feePercent) / RATIO_DIVISOR;
       if (fee > 0) {
@@ -278,8 +268,7 @@ contract Leverager is OwnableUpgradeable {
     uint256 borrowRatio,
     uint256 loopCount
   ) external payable {
-    if (!(borrowRatio > 0 && borrowRatio <= RATIO_DIVISOR))
-      revert InvalidRatio();
+    if (!(borrowRatio > 0 && borrowRatio <= RATIO_DIVISOR)) revert InvalidRatio();
     if (loopCount == 0) revert InvalidLoopCount();
     uint16 referralCode = 0;
     uint256 amount = msg.value;
@@ -296,13 +285,7 @@ contract Leverager is OwnableUpgradeable {
 
     for (uint256 i = 0; i < loopCount; ) {
       amount = (amount * borrowRatio) / RATIO_DIVISOR;
-      lendingPool.borrow(
-        address(weth),
-        amount,
-        interestRateMode,
-        referralCode,
-        msg.sender
-      );
+      lendingPool.borrow(address(weth), amount, interestRateMode, referralCode, msg.sender);
 
       fee = (amount * feePercent) / RATIO_DIVISOR;
       if (fee > 0) {
@@ -331,8 +314,7 @@ contract Leverager is OwnableUpgradeable {
     uint256 borrowRatio,
     uint256 loopCount
   ) external {
-    if (!(borrowRatio > 0 && borrowRatio <= RATIO_DIVISOR))
-      revert InvalidRatio();
+    if (!(borrowRatio > 0 && borrowRatio <= RATIO_DIVISOR)) revert InvalidRatio();
     if (loopCount == 0) revert InvalidLoopCount();
     uint16 referralCode = 0;
     _approve(address(weth));
@@ -340,13 +322,7 @@ contract Leverager is OwnableUpgradeable {
     uint256 fee;
 
     for (uint256 i = 0; i < loopCount; ) {
-      lendingPool.borrow(
-        address(weth),
-        amount,
-        interestRateMode,
-        referralCode,
-        msg.sender
-      );
+      lendingPool.borrow(address(weth), amount, interestRateMode, referralCode, msg.sender);
 
       fee = (amount * feePercent) / RATIO_DIVISOR;
       if (fee > 0) {

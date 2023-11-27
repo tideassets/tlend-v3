@@ -120,9 +120,7 @@ contract LockZap is Initializable, OwnableUpgradeable, PausableUpgradeable {
    * @param _asset underlying.
    */
   function getVDebtToken(address _asset) external view returns (address) {
-    DataTypes.ReserveData memory reserveData = lendingPool.getReserveData(
-      _asset
-    );
+    DataTypes.ReserveData memory reserveData = lendingPool.getReserveData(_asset);
     return reserveData.variableDebtTokenAddress;
   }
 
@@ -134,9 +132,7 @@ contract LockZap is Initializable, OwnableUpgradeable, PausableUpgradeable {
   ) external onlyOwner {
     if (tokenA == address(0)) revert AddressZero();
     if (tokenB == address(0)) revert AddressZero();
-    (address token0, address token1) = tokenA < tokenB
-      ? (tokenA, tokenB)
-      : (tokenB, tokenA);
+    (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
     lpPools[token0][token1] = pool;
     poolsTickSpacing[pool] = tickSpacing;
   }
@@ -152,11 +148,7 @@ contract LockZap is Initializable, OwnableUpgradeable, PausableUpgradeable {
     uint bl1;
   }
 
-  function _borrowSwap(
-    TokensInfo memory ti,
-    bool isBorrow,
-    uint24 fee
-  ) internal {
+  function _borrowSwap(TokensInfo memory ti, bool isBorrow, uint24 fee) internal {
     if (isBorrow) {
       lendingPool.borrow(
         ti.t0,
@@ -165,9 +157,7 @@ contract LockZap is Initializable, OwnableUpgradeable, PausableUpgradeable {
         REFERRAL_CODE,
         msg.sender
       );
-      (, , , , , uint healthFactor) = lendingPool.getUserAccountData(
-        msg.sender
-      );
+      (, , , , , uint healthFactor) = lendingPool.getUserAccountData(msg.sender);
       if (healthFactor < MIN_HEALTH_FACTOR) {
         revert InvalidAmount();
       }
@@ -209,23 +199,9 @@ contract LockZap is Initializable, OwnableUpgradeable, PausableUpgradeable {
     if (ba || bb) {
       TokensInfo memory ti;
       if (ba) {
-        ti = TokensInfo(
-          zi.tokenA,
-          zi.tokenB,
-          zi.amountA,
-          zi.amountB,
-          balanceA,
-          balanceB
-        );
+        ti = TokensInfo(zi.tokenA, zi.tokenB, zi.amountA, zi.amountB, balanceA, balanceB);
       } else {
-        ti = TokensInfo(
-          zi.tokenB,
-          zi.tokenA,
-          zi.amountB,
-          zi.amountA,
-          balanceB,
-          balanceA
-        );
+        ti = TokensInfo(zi.tokenB, zi.tokenA, zi.amountB, zi.amountA, balanceB, balanceA);
       }
       _borrowSwap(ti, zi.isborrow, fee);
     } else {
@@ -255,30 +231,16 @@ contract LockZap is Initializable, OwnableUpgradeable, PausableUpgradeable {
 
     IV3Pool pool = IV3Pool(lpPools[token0][token1]);
     _zap0(zi, pool.fee());
-    (uint tokenId, uint128 liquidity, uint amount0, uint amount1) = _zap1(
-      zi,
-      pool
-    );
+    (uint tokenId, uint128 liquidity, uint amount0, uint amount1) = _zap1(zi, pool);
 
     IERC20(zi.tokenA).safeTransfer(msg.sender, zi.amountA - amount0);
     IERC20(zi.tokenB).safeTransfer(msg.sender, zi.amountB - amount1);
 
-    emit Zapped(
-      msg.sender,
-      zi.tokenA,
-      zi.tokenB,
-      amount0,
-      amount1,
-      zi.isborrow,
-      zi.recipient
-    );
+    emit Zapped(msg.sender, zi.tokenA, zi.tokenB, amount0, amount1, zi.isborrow, zi.recipient);
     return liquidity;
   }
 
-  function _zap1(
-    ZapInfo memory zi,
-    IV3Pool pool
-  ) internal returns (uint, uint128, uint, uint) {
+  function _zap1(ZapInfo memory zi, IV3Pool pool) internal returns (uint, uint128, uint, uint) {
     INFTMgr.MintParams memory params;
     {
       IERC20(zi.tokenA).forceApprove(address(pool), zi.amountA);

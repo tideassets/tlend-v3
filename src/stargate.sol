@@ -63,8 +63,7 @@ contract StargateBorrow is OwnableUpgradeable {
   uint256 public constant MAX_SLIPPAGE = 80;
 
   // ETH address
-  address private constant ETH_ADDRESS =
-    0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+  address private constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
   // Max reasonable fee, 1%
   uint256 public constant MAX_REASONABLE_FEE = 100;
@@ -181,10 +180,7 @@ contract StargateBorrow is OwnableUpgradeable {
    * @param assets array.
    * @param poolIDs array.
    */
-  function setPoolIDs(
-    address[] calldata assets,
-    uint256[] calldata poolIDs
-  ) external onlyOwner {
+  function setPoolIDs(address[] calldata assets, uint256[] calldata poolIDs) external onlyOwner {
     uint256 length = assets.length;
     if (length != poolIDs.length) revert LengthMismatch();
     for (uint256 i = 0; i < length; ) {
@@ -210,11 +206,8 @@ contract StargateBorrow is OwnableUpgradeable {
    * @param amount Fee cost.
    * @return Fee amount for cross chain borrow
    */
-  function getXChainBorrowFeeAmount(
-    uint256 amount
-  ) public view returns (uint256) {
-    uint256 feeAmount = (amount * (xChainBorrowFeePercent)) /
-      (FEE_PERCENT_DIVISOR);
+  function getXChainBorrowFeeAmount(uint256 amount) public view returns (uint256) {
+    uint256 feeAmount = (amount * (xChainBorrowFeePercent)) / (FEE_PERCENT_DIVISOR);
     return feeAmount;
   }
 
@@ -262,13 +255,7 @@ contract StargateBorrow is OwnableUpgradeable {
     if (address(asset) == ETH_ADDRESS && address(routerETH) != address(0)) {
       _borrowETH(amount, interestRateMode, dstChainId);
     } else {
-      lendingPool.borrow(
-        asset,
-        amount,
-        interestRateMode,
-        REFERRAL_CODE,
-        msg.sender
-      );
+      lendingPool.borrow(asset, amount, interestRateMode, REFERRAL_CODE, msg.sender);
       uint256 feeAmount = getXChainBorrowFeeAmount(amount);
       if (feeAmount > 0) {
         IERC20(asset).safeTransfer(daoTreasury, feeAmount);
@@ -295,18 +282,8 @@ contract StargateBorrow is OwnableUpgradeable {
    * @param interestRateMode stable or variable borrow mode
    * @param dstChainId Destination chain id
    **/
-  function _borrowETH(
-    uint256 amount,
-    uint256 interestRateMode,
-    uint16 dstChainId
-  ) internal {
-    lendingPool.borrow(
-      address(weth),
-      amount,
-      interestRateMode,
-      REFERRAL_CODE,
-      msg.sender
-    );
+  function _borrowETH(uint256 amount, uint256 interestRateMode, uint16 dstChainId) internal {
+    lendingPool.borrow(address(weth), amount, interestRateMode, REFERRAL_CODE, msg.sender);
     weth.withdraw(amount);
     uint256 feeAmount = getXChainBorrowFeeAmount(amount);
     if (feeAmount > 0) {
