@@ -1,0 +1,7 @@
+@layerzerolabs/solidity-examples/=lib/solidity-examples/
+@openzeppelin/contracts/=lib/openzeppelin-contracts-upgradeable/lib/openzeppelin-contracts/contracts/
+@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/
+@aave/core-v3=lib/aave-v3-core/
+@aave/periphery-v3=lib/aave-v3-periphery/
+@uniswap/periphery-v3=lib/v3-periphery/
+@tide/tfund/=lib/tfund/src/

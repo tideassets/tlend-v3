@@ -2,7 +2,6 @@
 // Copyright (C) 2023
 // leverater.sol : from radiant leverager, loop deposit and borrow to get more leverage
 //
-
 pragma solidity ^0.8.20;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -18,25 +17,25 @@ contract Leverager is OwnableUpgradeable {
   using SafeERC20 for IERC20;
 
   /// @notice margin estimation used for zapping eth to dlp
-  uint256 public constant ZAP_MARGIN_ESTIMATION = 6;
+  uint public constant ZAP_MARGIN_ESTIMATION = 6;
 
   /// @notice maximum margin allowed to be set by the deployer
-  uint256 public constant MAX_MARGIN = 10;
+  uint public constant MAX_MARGIN = 10;
 
   /// @notice Ratio Divisor
-  uint256 public constant RATIO_DIVISOR = 10000;
+  uint public constant RATIO_DIVISOR = 10000;
 
   // Max reasonable fee, 1%
-  uint256 public constant MAX_REASONABLE_FEE = 100;
+  uint public constant MAX_REASONABLE_FEE = 100;
 
   /// @notice Mock ETH address
   address public constant API_ETH_MOCK_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
   /// @notice LTV Calculation precision
-  uint256 public constant TWO_POW_16 = 2 ** 16;
+  uint public constant TWO_POW_16 = 2 ** 16;
 
   /// @notice Interest rate mode
-  uint256 public constant INTEREST_RATE_MODE = 2;
+  uint public constant INTEREST_RATE_MODE = 2;
 
   /// @notice Lending Pool address
   IPool public lendingPool;
@@ -54,7 +53,7 @@ contract Leverager is OwnableUpgradeable {
   IAaveOracle public aaveOracle;
 
   /// @notice Fee ratio
-  uint256 public feePercent;
+  uint public feePercent;
 
   /// @notice Treasury address
   address public treasury;
@@ -63,7 +62,7 @@ contract Leverager is OwnableUpgradeable {
   // IChefIncentivesController public cic;
 
   /// @notice Emitted when fee ratio is updated
-  event FeePercentUpdated(uint256 indexed _feePercent);
+  event FeePercentUpdated(uint indexed _feePercent);
 
   /// @notice Emitted when treasury is updated
   event TreasuryUpdated(address indexed _treasury);
@@ -103,7 +102,7 @@ contract Leverager is OwnableUpgradeable {
     IPool _lendingPool,
     IAaveOracle _aaveOracle,
     WETH9 _weth,
-    uint256 _feePercent,
+    uint _feePercent,
     address _treasury
   ) public initializer {
     if (address(_lendingPool) == address(0)) revert AddressZero();
@@ -138,7 +137,7 @@ contract Leverager is OwnableUpgradeable {
    * @notice Sets fee ratio
    * @param _feePercent fee ratio.
    */
-  function setFeePercent(uint256 _feePercent) external onlyOwner {
+  function setFeePercent(uint _feePercent) external onlyOwner {
     if (_feePercent > MAX_REASONABLE_FEE) revert InvalidRatio();
     feePercent = _feePercent;
     emit FeePercentUpdated(_feePercent);
@@ -158,10 +157,13 @@ contract Leverager is OwnableUpgradeable {
    * @dev Returns the configuration of the reserve
    * @param asset The address of the underlying asset of the reserve
    * @return The configuration of the reserve
-   **/
-  function getConfiguration(
-    address asset
-  ) public view returns (DataTypes.ReserveConfigurationMap memory) {
+   *
+   */
+  function getConfiguration(address asset)
+    public
+    view
+    returns (DataTypes.ReserveConfigurationMap memory)
+  {
     return lendingPool.getConfiguration(asset);
   }
 
@@ -169,7 +171,8 @@ contract Leverager is OwnableUpgradeable {
    * @dev Returns variable debt token address of asset
    * @param asset The address of the underlying asset of the reserve
    * @return varaiableDebtToken address of the asset
-   **/
+   *
+   */
   function getVDebtToken(address asset) external view returns (address) {
     DataTypes.ReserveData memory reserveData = lendingPool.getReserveData(asset);
     return reserveData.variableDebtTokenAddress;
@@ -179,27 +182,18 @@ contract Leverager is OwnableUpgradeable {
    * @dev Returns loan to value
    * @param asset The address of the underlying asset of the reserve
    * @return ltv of the asset
-   **/
-  function ltv(address asset) external view returns (uint256) {
+   *
+   */
+  function ltv(address asset) external view returns (uint) {
     DataTypes.ReserveConfigurationMap memory conf = getConfiguration(asset);
     return conf.data % TWO_POW_16;
   }
 
-  function loopWithBorrow(
-    address asset,
-    uint256 amount,
-    uint256 borrowRatio,
-    uint256 loopCount
-  ) external {
+  function loopWithBorrow(address asset, uint amount, uint borrowRatio, uint loopCount) external {
     _loop(asset, amount, INTEREST_RATE_MODE, borrowRatio, loopCount, true);
   }
 
-  function loopWithDeposit(
-    address asset,
-    uint256 amount,
-    uint256 borrowRatio,
-    uint256 loopCount
-  ) external {
+  function loopWithDeposit(address asset, uint amount, uint borrowRatio, uint loopCount) external {
     _loop(asset, amount, INTEREST_RATE_MODE, borrowRatio, loopCount, false);
   }
 
@@ -211,19 +205,20 @@ contract Leverager is OwnableUpgradeable {
    * @param borrowRatio Ratio of tokens to borrow
    * @param loopCount Repeat count for loop
    * @param isBorrow true when the loop without deposit tokens
-   **/
+   *
+   */
   function _loop(
     address asset,
-    uint256 amount,
-    uint256 interestRateMode,
-    uint256 borrowRatio,
-    uint256 loopCount,
+    uint amount,
+    uint interestRateMode,
+    uint borrowRatio,
+    uint loopCount,
     bool isBorrow
   ) internal {
     if (!(borrowRatio > 0 && borrowRatio <= RATIO_DIVISOR)) revert InvalidRatio();
     if (loopCount == 0) revert InvalidLoopCount();
     uint16 referralCode = 0;
-    uint256 fee;
+    uint fee;
     if (!isBorrow) {
       IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
       fee = (amount * feePercent) / RATIO_DIVISOR;
@@ -240,7 +235,7 @@ contract Leverager is OwnableUpgradeable {
       amount = (amount * RATIO_DIVISOR) / borrowRatio;
     }
 
-    for (uint256 i = 0; i < loopCount; ) {
+    for (uint i = 0; i < loopCount;) {
       amount = (amount * borrowRatio) / RATIO_DIVISOR;
       lendingPool.borrow(asset, amount, interestRateMode, referralCode, msg.sender);
 
@@ -262,19 +257,16 @@ contract Leverager is OwnableUpgradeable {
    * @param interestRateMode stable or variable borrow mode
    * @param borrowRatio Ratio of tokens to borrow
    * @param loopCount Repeat count for loop
-   **/
-  function loopETH(
-    uint256 interestRateMode,
-    uint256 borrowRatio,
-    uint256 loopCount
-  ) external payable {
+   *
+   */
+  function loopETH(uint interestRateMode, uint borrowRatio, uint loopCount) external payable {
     if (!(borrowRatio > 0 && borrowRatio <= RATIO_DIVISOR)) revert InvalidRatio();
     if (loopCount == 0) revert InvalidLoopCount();
     uint16 referralCode = 0;
-    uint256 amount = msg.value;
+    uint amount = msg.value;
     _approve(address(weth));
 
-    uint256 fee = (amount * feePercent) / RATIO_DIVISOR;
+    uint fee = (amount * feePercent) / RATIO_DIVISOR;
     if (fee > 0) {
       TransferHelper.safeTransferETH(treasury, fee);
       amount = amount - fee;
@@ -283,7 +275,7 @@ contract Leverager is OwnableUpgradeable {
     weth.deposit{value: amount}();
     lendingPool.deposit(address(weth), amount, msg.sender, referralCode);
 
-    for (uint256 i = 0; i < loopCount; ) {
+    for (uint i = 0; i < loopCount;) {
       amount = (amount * borrowRatio) / RATIO_DIVISOR;
       lendingPool.borrow(address(weth), amount, interestRateMode, referralCode, msg.sender);
 
@@ -307,21 +299,19 @@ contract Leverager is OwnableUpgradeable {
    * @param amount initial amount to borrow
    * @param borrowRatio Ratio of tokens to borrow
    * @param loopCount Repeat count for loop
-   **/
-  function loopETHFromBorrow(
-    uint256 interestRateMode,
-    uint256 amount,
-    uint256 borrowRatio,
-    uint256 loopCount
-  ) external {
+   *
+   */
+  function loopETHFromBorrow(uint interestRateMode, uint amount, uint borrowRatio, uint loopCount)
+    external
+  {
     if (!(borrowRatio > 0 && borrowRatio <= RATIO_DIVISOR)) revert InvalidRatio();
     if (loopCount == 0) revert InvalidLoopCount();
     uint16 referralCode = 0;
     _approve(address(weth));
 
-    uint256 fee;
+    uint fee;
 
-    for (uint256 i = 0; i < loopCount; ) {
+    for (uint i = 0; i < loopCount;) {
       lendingPool.borrow(address(weth), amount, interestRateMode, referralCode, msg.sender);
 
       fee = (amount * feePercent) / RATIO_DIVISOR;
@@ -343,13 +333,14 @@ contract Leverager is OwnableUpgradeable {
   /**
    * @notice Approves token allowance of `lendingPool` and `treasury`.
    * @param asset underlyig asset
-   **/
+   *
+   */
   function _approve(address asset) internal {
     if (IERC20(asset).allowance(address(this), address(lendingPool)) == 0) {
-      IERC20(asset).forceApprove(address(lendingPool), type(uint256).max);
+      IERC20(asset).forceApprove(address(lendingPool), type(uint).max);
     }
     if (IERC20(asset).allowance(address(this), address(treasury)) == 0) {
-      IERC20(asset).forceApprove(treasury, type(uint256).max);
+      IERC20(asset).forceApprove(treasury, type(uint).max);
     }
   }
 }

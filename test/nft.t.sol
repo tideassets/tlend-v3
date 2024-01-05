@@ -7,9 +7,7 @@ import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
 interface IXXSwapNFT {
-  function positions(
-    uint256 tokenId
-  )
+  function positions(uint tokenId)
     external
     view
     returns (
@@ -21,8 +19,8 @@ interface IXXSwapNFT {
       int24 tickLower,
       int24 tickUpper,
       uint128 liquidity,
-      uint256 feeGrowthInside0LastX128,
-      uint256 feeGrowthInside1LastX128,
+      uint feeGrowthInside0LastX128,
+      uint feeGrowthInside1LastX128,
       uint128 tokensOwed0,
       uint128 tokensOwed1
     );
@@ -33,96 +31,98 @@ interface IXXSwapNFT {
     uint24 fee;
     int24 tickLower;
     int24 tickUpper;
-    uint256 amount0Desired;
-    uint256 amount1Desired;
-    uint256 amount0Min;
-    uint256 amount1Min;
+    uint amount0Desired;
+    uint amount1Desired;
+    uint amount0Min;
+    uint amount1Min;
     address recipient;
-    uint256 deadline;
+    uint deadline;
   }
 
-  function mint(
-    MintParams calldata params
-  ) external payable returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
+  function mint(MintParams calldata params)
+    external
+    payable
+    returns (uint tokenId, uint128 liquidity, uint amount0, uint amount1);
 
   struct IncreaseLiquidityParams {
-    uint256 tokenId;
-    uint256 amount0Desired;
-    uint256 amount1Desired;
-    uint256 amount0Min;
-    uint256 amount1Min;
-    uint256 deadline;
+    uint tokenId;
+    uint amount0Desired;
+    uint amount1Desired;
+    uint amount0Min;
+    uint amount1Min;
+    uint deadline;
   }
 
-  function increaseLiquidity(
-    IncreaseLiquidityParams calldata params
-  ) external payable returns (uint128 liquidity, uint256 amount0, uint256 amount1);
+  function increaseLiquidity(IncreaseLiquidityParams calldata params)
+    external
+    payable
+    returns (uint128 liquidity, uint amount0, uint amount1);
 
   struct DecreaseLiquidityParams {
-    uint256 tokenId;
+    uint tokenId;
     uint128 liquidity;
-    uint256 amount0Min;
-    uint256 amount1Min;
-    uint256 deadline;
+    uint amount0Min;
+    uint amount1Min;
+    uint deadline;
   }
 
-  function decreaseLiquidity(
-    DecreaseLiquidityParams calldata params
-  ) external payable returns (uint256 amount0, uint256 amount1);
+  function decreaseLiquidity(DecreaseLiquidityParams calldata params)
+    external
+    payable
+    returns (uint amount0, uint amount1);
 
   struct CollectParams {
-    uint256 tokenId;
+    uint tokenId;
     address recipient;
     uint128 amount0Max;
     uint128 amount1Max;
   }
 
-  function collect(
-    CollectParams calldata params
-  ) external payable returns (uint256 amount0, uint256 amount1);
+  function collect(CollectParams calldata params)
+    external
+    payable
+    returns (uint amount0, uint amount1);
 
-  function burn(uint256 tokenId) external payable;
+  function burn(uint tokenId) external payable;
 }
 
 contract XXSwapNFT is IXXSwapNFT, ERC721 {
   constructor() ERC721("name", "symbol") {}
 
-  function burn(uint256 tokenId) external payable {
+  function burn(uint tokenId) external payable {
     console2.log("XXSwapNFT: burn, %d", tokenId);
   }
 
-  function collect(
-    CollectParams calldata
-  ) external payable returns (uint256 amount0, uint256 amount1) {}
+  function collect(CollectParams calldata) external payable returns (uint amount0, uint amount1) {}
 
-  function increaseLiquidity(
-    IncreaseLiquidityParams calldata p
-  ) external payable returns (uint128, uint256, uint256) {
+  function increaseLiquidity(IncreaseLiquidityParams calldata p)
+    external
+    payable
+    returns (uint128, uint, uint)
+  {
     console2.log("XXSwapNFT: IncreaseLiquidity, %d", p.amount1Desired);
     return (0, 0, 0);
   }
 
-  function decreaseLiquidity(
-    DecreaseLiquidityParams calldata p
-  ) external payable returns (uint256, uint256) {
+  function decreaseLiquidity(DecreaseLiquidityParams calldata p)
+    external
+    payable
+    returns (uint, uint)
+  {
     console2.log("XXSwapNFT: decreaseLiquidity, %d", p.amount1Min);
     return (0, 0);
   }
 
-  function mint(
-    MintParams memory p
-  )
+  function mint(MintParams memory p)
     external
     payable
-    returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)
+    returns (uint tokenId, uint128 liquidity, uint amount0, uint amount1)
   {
     console2.log("XXSwapNFT: mint, %d", p.amount0Desired);
     return (0, 0, 0, 0);
   }
 
-  function positions(
-    uint256 tokenId
-  )
+  function positions(uint tokenId)
     external
     view
     returns (
@@ -134,8 +134,8 @@ contract XXSwapNFT is IXXSwapNFT, ERC721 {
       int24 tickLower,
       int24 tickUpper,
       uint128 liquidity,
-      uint256 feeGrowthInside0LastX128,
-      uint256 feeGrowthInside1LastX128,
+      uint feeGrowthInside0LastX128,
+      uint feeGrowthInside1LastX128,
       uint128 tokensOwed0,
       uint128 tokensOwed1
     )

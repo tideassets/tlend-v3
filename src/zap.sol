@@ -2,14 +2,14 @@
 // Copyright (C) 2023
 // zap.sol : from radiant zapping, use your native token and TTL to add liquidity to tswap pools
 //
-
 pragma solidity ^0.8.20;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {PausableUpgradeable} from
+  "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {IPool, DataTypes} from "@aave/core-v3/contracts/interfaces/IPool.sol";
 
 import {ISwapNFT} from "./interface/swapNFT.sol";
@@ -25,12 +25,12 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
   using SafeERC20 for IERC20;
 
   /// @notice Borrow rate mode
-  uint256 public constant VARIABLE_INTEREST_RATE_MODE = 2;
+  uint public constant VARIABLE_INTEREST_RATE_MODE = 2;
 
   /// @notice We don't utilize any specific referral code for borrows perfomed via zaps
   uint16 public constant REFERRAL_CODE = 0;
 
-  uint256 public constant MIN_HEALTH_FACTOR = 1.1e18;
+  uint public constant MIN_HEALTH_FACTOR = 1.1e18;
 
   /// @notice  pool address = lpPools[TOKEN_A][TOKEN_B]
   mapping(address => mapping(address => address)) public lpPools;
@@ -50,29 +50,31 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
   /// @notice staker contract
   address public staker;
 
-  /********************** Events ***********************/
+  /**
+   * Events **********************
+   */
   /// @notice Emitted when zap is done
   event Zapped(
     address indexed _from,
     address indexed _tokenA,
     address indexed _tokenB,
-    uint256 _amountA,
-    uint256 _amountB
+    uint _amountA,
+    uint _amountB
   );
 
-  /********************** Errors ***********************/
+  /**
+   * Errors **********************
+   */
   error AddressZero();
 
   constructor() {
     _disableInitializers();
   }
 
-  function initialize(
-    IPool _lendingPool,
-    address _staker,
-    address _swapRouter,
-    address _nft
-  ) external initializer {
+  function initialize(IPool _lendingPool, address _staker, address _swapRouter, address _nft)
+    external
+    initializer
+  {
     if (address(_lendingPool) == address(0)) revert AddressZero();
     if (_swapRouter == address(0)) revert AddressZero();
     if (_nft == address(0)) revert AddressZero();
@@ -127,6 +129,7 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
 
   error InvalidTokens();
   error InvalidAmount();
+
   struct TokensInfo {
     address t0;
     address t1;
@@ -139,13 +142,9 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
   function _borrowSwap(TokensInfo memory ti, bool isBorrow, uint24 fee) internal {
     if (isBorrow) {
       lendingPool.borrow(
-        ti.t0,
-        ti.a0 - ti.bl0,
-        VARIABLE_INTEREST_RATE_MODE,
-        REFERRAL_CODE,
-        msg.sender
+        ti.t0, ti.a0 - ti.bl0, VARIABLE_INTEREST_RATE_MODE, REFERRAL_CODE, msg.sender
       );
-      (, , , , , uint healthFactor) = lendingPool.getUserAccountData(msg.sender);
+      (,,,,, uint healthFactor) = lendingPool.getUserAccountData(msg.sender);
       if (healthFactor < MIN_HEALTH_FACTOR) {
         revert InvalidAmount();
       }
@@ -211,9 +210,8 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
   function zap(ZapInfo memory zi) external returns (uint) {
     if (zi.amountA == 0 || zi.amountB == 0) revert InvalidAmount();
 
-    (address token0, address token1) = zi.tokenA < zi.tokenB
-      ? (zi.tokenA, zi.tokenB)
-      : (zi.tokenB, zi.tokenA);
+    (address token0, address token1) =
+      zi.tokenA < zi.tokenB ? (zi.tokenA, zi.tokenB) : (zi.tokenB, zi.tokenA);
     if (lpPools[token0][token1] == address(0)) revert InvalidTokens();
 
     ISwapPool pool = ISwapPool(lpPools[token0][token1]);
@@ -235,7 +233,7 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
 
   function unzap(uint tokenId, address recipient) external returns (uint, uint) {
     require(nft.ownerOf(tokenId) == msg.sender, "Not owner of tokenID");
-    (, , , , , , , uint128 liquidity, , , , ) = nft.positions(tokenId);
+    (,,,,,,, uint128 liquidity,,,,) = nft.positions(tokenId);
     ISwapNFT.DecreaseLiquidityParams memory param = ISwapNFT.DecreaseLiquidityParams({
       tokenId: tokenId,
       liquidity: liquidity,
@@ -258,11 +256,10 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
     return (amount0, amount1);
   }
 
-  function _zap1(
-    ZapInfo memory zi,
-    ISwapPool pool,
-    address recipient
-  ) internal returns (uint, uint128, uint, uint) {
+  function _zap1(ZapInfo memory zi, ISwapPool pool, address recipient)
+    internal
+    returns (uint, uint128, uint, uint)
+  {
     ISwapNFT.MintParams memory params;
     {
       IERC20(zi.tokenA).forceApprove(address(pool), zi.amountA);

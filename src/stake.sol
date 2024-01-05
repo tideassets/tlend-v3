@@ -2,7 +2,6 @@
 // Copyright (C) 2023
 // stake.sol : lock liquidity and redeem dlp token
 //
-
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
