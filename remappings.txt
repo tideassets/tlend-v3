@@ -4,4 +4,5 @@
 @aave/core-v3=lib/aave-v3-core/
 @aave/periphery-v3=lib/aave-v3-periphery/
 @uniswap/periphery-v3=lib/v3-periphery/
-@aave/safety-module=safety-module/
+@aave/safety-module=lib/safety-module/
+@aave/stake-v2=lib/aave-stake-v2/
