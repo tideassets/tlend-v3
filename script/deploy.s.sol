@@ -47,6 +47,11 @@ contract CounterScript is Script {
     if (!isTestnet) {
       return;
     }
+    WETH9Mocked weth = new WETH9Mocked();
+    MintableERC20 dai = new MintableERC20("DAI", "DAI", 18);
+
+    InitializableAdminUpgradeabilityProxy proxy = new InitializableAdminUpgradeabilityProxy();
+
 
   }
 
