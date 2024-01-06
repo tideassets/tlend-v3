@@ -353,7 +353,7 @@ contract DeployScript is Script, ReservConfig {
       interestRateStrategyAddress: address(strategy),
       underlyingAsset: asset,
       treasury: address(treasuryProxy),
-      incentivesController: address(0),
+      incentivesController: addressesProvider.getAddress(keccak256("INCENTIVES_CONTROLLER")),
       aTokenName: string(abi.encodePacked("Aave aToken ", symbol)),
       aTokenSymbol: string(abi.encodePacked("AAVE-aToken-", symbol)),
       variableDebtTokenName: string(abi.encodePacked("Aave variable debt ", symbol)),
