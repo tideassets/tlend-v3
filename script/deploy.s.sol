@@ -436,7 +436,9 @@ contract DeployScript is Script, ReservConfig {
   }
 
   function _deploy_init_periphery() internal {
-    flashLoanReceiver = new MockFlashLoanReceiver(addressesProvider);
+    if (is_test) {
+      flashLoanReceiver = new MockFlashLoanReceiver(addressesProvider);
+    }
   }
 
   function _deploy_periphery_post() internal {
