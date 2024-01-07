@@ -361,11 +361,11 @@ contract DeployScript is Script, ReservConfig {
       underlyingAsset: asset,
       treasury: address(treasuryProxy),
       incentivesController: addressesProvider.getAddress(keccak256("INCENTIVES_CONTROLLER")),
-      aTokenName: string(abi.encodePacked("Aave aToken ", symbol)),
-      aTokenSymbol: string(abi.encodePacked("AAVE-aToken-", symbol)),
-      variableDebtTokenName: string(abi.encodePacked("Aave variable debt ", symbol)),
+      aTokenName: string(abi.encodePacked("tlend aToken ", symbol)),
+      aTokenSymbol: string(abi.encodePacked("a", symbol)),
+      variableDebtTokenName: string(abi.encodePacked("tlend variable debt ", symbol)),
       variableDebtTokenSymbol: string(abi.encodePacked("v", symbol)),
-      stableDebtTokenName: string(abi.encodePacked("Aave stable debt ", symbol)),
+      stableDebtTokenName: string(abi.encodePacked("tlend stable debt ", symbol)),
       stableDebtTokenSymbol: string(abi.encodePacked("s", symbol)),
       params: "0x10"
     });
@@ -453,7 +453,7 @@ contract DeployScript is Script, ReservConfig {
     // ParaSwapRepayAdapter paraSwapRepayAdapter = new ParaSwapRepayAdapter(addressesProvider);
   }
 
-  function _run() internal {
+  function _deploy_aave() internal {
     _deploy_marketRegistry();
     _deploy_treasury();
     _deploy_addresses_provider();
@@ -475,12 +475,35 @@ contract DeployScript is Script, ReservConfig {
     _deploy_periphery_post();
   }
 
+  //////////////////////////////////////////////////////////////////////////
+  ///  deploy tlen : zap, staker, stargate, leverage, liquidator, ...
+  //////////////////////////////////////////////////////////////////////////
+
+  function _deploy_zap() internal {}
+  function _deploy_staker() internal {}
+  function _deploy_stargate() internal {}
+  function _deploy_leverage() internal {}
+  function _deploy_dlp() internal {}
+
+  function _deploy_tlen() internal {
+    _deploy_zap();
+    _deploy_staker();
+    _deploy_stargate();
+    _deploy_leverage();
+    _deploy_dlp();
+  }
+
+  function _run() internal {
+    _deploy_aave();
+    _deploy_tlen();
+  }
+
   function run() public {
     deployer = vm.rememberKey(vm.envUint("PRIVATE_KEY"));
     market_name = vm.envString("MARKET");
     network = vm.envString("NETWORK");
     weth = vm.envAddress("WETH");
-    is_test = vm.envBool("IS_TEST");
+    is_test = vm.envBool("TESTNET");
     l2_suppored = vm.envBool("L2_SUPPORTED");
     native = vm.envString("NATIVE");
 
