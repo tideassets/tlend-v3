@@ -59,15 +59,19 @@ import {ParaSwapLiquiditySwapAdapter} from
   "@aave/periphery-v3/contracts/adapters/paraswap/ParaSwapLiquiditySwapAdapter.sol";
 import {ParaSwapRepayAdapter} from
   "@aave/periphery-v3/contracts/adapters/paraswap/ParaSwapRepayAdapter.sol";
+import {IEACAggregatorProxy} from
+  "@aave/periphery-v3/contracts/misc/interfaces/IEACAggregatorProxy.sol";
 
 import {ReservConfig} from "./config.s.sol";
 
 contract DeployScript is Script, ReservConfig {
+  address deployer;
   string market_name;
   string network;
   bool l2_suppored;
   bool is_test;
   address public weth;
+  string native;
 
   PoolAddressesProviderRegistry public registry;
   InitializableAdminUpgradeabilityProxy public treasuryProxy;
@@ -76,6 +80,10 @@ contract DeployScript is Script, ReservConfig {
   ReservesSetupHelper helper;
   L2Encoder l2Encoder;
   MockFlashLoanReceiver flashLoanReceiver;
+  WrappedTokenGatewayV3 gateway;
+  WalletBalanceProvider walletBalanceProvider;
+  UiIncentiveDataProviderV3 incentiveDataProvider;
+  UiPoolDataProviderV3 poolDataProvider;
 
   AToken public aToken;
   DelegationAwareAToken public dToken;
@@ -88,20 +96,20 @@ contract DeployScript is Script, ReservConfig {
 
   function _after() internal {}
 
-  function _deploy_marketRegistry(address deployer) internal {
+  function _deploy_marketRegistry() internal {
     registry = new PoolAddressesProviderRegistry(deployer);
   }
 
-  function _deploy_treasury(address deployer) internal {
+  function _deploy_treasury() internal {
     AaveEcosystemReserveV2 treasury = new AaveEcosystemReserveV2();
     AaveEcosystemReserveController treasury_controller =
       new AaveEcosystemReserveController(deployer);
     treasuryProxy = new InitializableAdminUpgradeabilityProxy();
-    bytes memory data = abi.encodeWithSignature("initialize(address)", address(treasury_controller));
+    bytes memory data = abi.encodeWithSignature("initialize()", address(treasury_controller));
     treasuryProxy.initialize(address(treasury), deployer, data);
   }
 
-  function _deploy_addresses_provider(address deployer) internal {
+  function _deploy_addresses_provider() internal {
     addressesProvider = new PoolAddressesProvider(market_name, deployer);
     registry.registerAddressesProvider(address(addressesProvider), 1);
     addressesProvider.setMarketId(market_name);
@@ -109,12 +117,11 @@ contract DeployScript is Script, ReservConfig {
     addressesProvider.setPoolDataProvider(address(dataProvider));
   }
 
-  function _deploy_test_tokens(address) internal {
-    string memory NATIVE_TOKEN_SYMBOL = vm.envString("NATIVE_TOKEN_SYMBOL");
+  function _deploy_test_tokens() internal {
     for (uint i = 0; i < reserveSymbols.length; i++) {
       string memory symbol = reserveSymbols[i];
       address addr;
-      if (eqS(symbol, NATIVE_TOKEN_SYMBOL)) {
+      if (eqS(symbol, native)) {
         WETH9Mocked mweth = new WETH9Mocked();
         addr = address(mweth);
         weth = addr;
@@ -127,7 +134,7 @@ contract DeployScript is Script, ReservConfig {
     }
   }
 
-  function _deploy_stake(address deployer) internal {
+  function _deploy_stake() internal {
     // string[] memory rewardSymbols = ["stkAAVE", "REW"];
     // for (uint i = 0; i < rewardSymbols.length; i++) {
     //   string memory symbol = rewardSymbols[i];
@@ -158,7 +165,7 @@ contract DeployScript is Script, ReservConfig {
     // proxy.upgradeToAndCall(address(stakedTokenV2Rev3), data);
   }
 
-  function _deploy_price_feeds(address) internal {
+  function _deploy_price_feeds() internal {
     for (uint i = 0; i < reserveSymbols.length; i++) {
       string memory symbol = reserveSymbols[i];
       uint price = reservePrices[symbol];
@@ -167,13 +174,13 @@ contract DeployScript is Script, ReservConfig {
     }
   }
 
-  function _deploy_pool(address) internal {
+  function _deploy_pool() internal {
     Pool pool = new Pool(addressesProvider);
     addressesProvider.setPoolImpl(address(pool));
     Pool(addressesProvider.getPool()).initialize(addressesProvider);
   }
 
-  function _deploy_l2_pool(address) internal {
+  function _deploy_l2_pool() internal {
     L2Pool l2pool = new L2Pool(addressesProvider);
     addressesProvider.setPoolImpl(address(l2pool));
     address poolProxy = addressesProvider.getPool();
@@ -181,7 +188,7 @@ contract DeployScript is Script, ReservConfig {
     l2Encoder = new L2Encoder(L2Pool(poolProxy));
   }
 
-  function _deploy_pool_config(address) internal {
+  function _deploy_pool_config() internal {
     PoolConfigurator configurator = new PoolConfigurator();
     addressesProvider.setPoolConfiguratorImpl(address(configurator));
     address configProxy = addressesProvider.getPoolConfigurator();
@@ -191,7 +198,7 @@ contract DeployScript is Script, ReservConfig {
     helper = new ReservesSetupHelper();
   }
 
-  function _deploy_acl(address deployer) internal {
+  function _deploy_acl() internal {
     addressesProvider.setACLAdmin(deployer);
     ACLManager acl = new ACLManager(addressesProvider);
     addressesProvider.setACLManager(address(acl));
@@ -199,7 +206,7 @@ contract DeployScript is Script, ReservConfig {
     acl.addEmergencyAdmin(deployer);
   }
 
-  function _deploy_oracle(address) internal {
+  function _deploy_oracle() internal {
     address[] memory assets = new address[](reserveSymbols.length);
     address[] memory oracles = new address[](reserveSymbols.length);
 
@@ -214,7 +221,7 @@ contract DeployScript is Script, ReservConfig {
     addressesProvider.setPriceOracle(address(oracle));
   }
 
-  function _deploy_incentives(address deployer) internal {
+  function _deploy_incentives() internal {
     RewardsController ctrl = new RewardsController();
     EmissionManager mgr = new EmissionManager(address(ctrl), deployer);
     ctrl.initialize(address(0));
@@ -288,7 +295,7 @@ contract DeployScript is Script, ReservConfig {
     );
   }
 
-  function _deploy_token_impl(address) internal {
+  function _deploy_token_impl() internal {
     _new_aToken();
     _new_delegation_aToken();
     _new_stable_debt_token();
@@ -423,61 +430,63 @@ contract DeployScript is Script, ReservConfig {
     ACLManager(aclMgr).removeRiskAdmin(address(helper));
   }
 
-  function _deploy_init_reserves(address) internal {
+  function _deploy_init_reserves() internal {
     _init_config();
     _init_setup_helper();
   }
 
-  function _deploy_init_periphery(address) internal {
+  function _deploy_init_periphery() internal {
     flashLoanReceiver = new MockFlashLoanReceiver(addressesProvider);
   }
 
-  function _deploy_periphery_post(address deployer) internal {
-    // WrappedTokenGatewayV3 gateway =
-    //   new WrappedTokenGatewayV3(weth, deployer, addressesProvider.getPool());
-    // WalletBalanceProvider walletBalanceProvider = new WalletBalanceProvider();
-    // UiIncentiveDataProviderV3 incentiveDataProvider = new UiIncentiveDataProviderV3();
-    // UiPoolDataProviderV3 poolDataProvider = new UiPoolDataProviderV3(address(0), address(0));
+  function _deploy_periphery_post() internal {
+    gateway = new WrappedTokenGatewayV3(weth, deployer, IPool(addressesProvider.getPool()));
+    walletBalanceProvider = new WalletBalanceProvider();
+    incentiveDataProvider = new UiIncentiveDataProviderV3();
+    address eth_oracle = reserveOracles[native][network];
+    poolDataProvider =
+      new UiPoolDataProviderV3(IEACAggregatorProxy(eth_oracle), IEACAggregatorProxy(eth_oracle));
     // ParaSwapLiquiditySwapAdapter paraSwapLiquiditySwapAdapter =
     //   new ParaSwapLiquiditySwapAdapter(addressesProvider);
     // ParaSwapRepayAdapter paraSwapRepayAdapter = new ParaSwapRepayAdapter(addressesProvider);
   }
 
-  function _run(address deployer) internal {
-    _deploy_marketRegistry(deployer);
-    _deploy_treasury(deployer);
-    _deploy_addresses_provider(deployer);
+  function _run() internal {
+    _deploy_marketRegistry();
+    _deploy_treasury();
+    _deploy_addresses_provider();
     if (is_test) {
-      _deploy_test_tokens(deployer);
-      _deploy_price_feeds(deployer);
+      _deploy_test_tokens();
+      _deploy_price_feeds();
     }
-    _deploy_pool(deployer);
+    _deploy_pool();
     if (l2_suppored) {
-      _deploy_l2_pool(deployer);
+      _deploy_l2_pool();
     }
-    _deploy_pool_config(deployer);
-    _deploy_acl(deployer);
-    _deploy_oracle(deployer);
-    _deploy_incentives(deployer);
-    _deploy_token_impl(deployer);
-    _deploy_init_reserves(deployer);
-    _deploy_init_periphery(deployer);
-    _deploy_periphery_post(deployer);
+    _deploy_pool_config();
+    _deploy_acl();
+    _deploy_oracle();
+    _deploy_incentives();
+    _deploy_token_impl();
+    _deploy_init_reserves();
+    _deploy_init_periphery();
+    _deploy_periphery_post();
   }
 
   function run() public {
-    address deployer = vm.rememberKey(vm.envUint("PRIVATE_KEY"));
+    deployer = vm.rememberKey(vm.envUint("PRIVATE_KEY"));
     market_name = vm.envString("MARKET");
     network = vm.envString("NETWORK");
     weth = vm.envAddress("WETH");
     is_test = vm.envBool("IS_TEST");
     l2_suppored = vm.envBool("L2_SUPPORTED");
+    native = vm.envString("NATIVE");
 
     _before();
 
     vm.startBroadcast(deployer);
 
-    _run(deployer);
+    _run();
 
     _after();
 
