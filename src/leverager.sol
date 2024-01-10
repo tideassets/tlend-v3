@@ -166,7 +166,7 @@ contract Leverager is OwnableUpgradeable {
 
   // loop borrow and deposit, first borrow
   // rateMode: 1 for Stable, 2 for Variable
-  function loopWithBorrow(address asset, uint amount, uint rateMode, uint loopCount) external {
+  function loopWithBorrow(address asset, uint amount, uint rateMode, uint loopCount) public {
     _loop(asset, amount, rateMode, loopCount, true);
   }
 

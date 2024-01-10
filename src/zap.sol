@@ -39,10 +39,6 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
   /// @notice Lending Pool contract
   IPool public lendingPool;
 
-  /// @notice aave oracle contract
-  // IAaveOracle public aaveOracle;
-  // IPoolDataProvider public poolDataProvider;
-
   /// @notice tswap AMM router
   address public swapRouter;
   /// @notice liquidity mgr
@@ -139,8 +135,9 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
     uint bl1;
   }
 
-  function _borrowSwap(TokensInfo memory ti, bool isBorrow, uint24 fee) internal {
-    if (isBorrow) {
+  // borrow and swap t1 for t0
+  function _borrowOrSwap(TokensInfo memory ti, bool useBorrow, bool useSwap, uint24 fee) internal {
+    if (useBorrow) {
       lendingPool.borrow(
         ti.t0, ti.a0 - ti.bl0, VARIABLE_INTEREST_RATE_MODE, REFERRAL_CODE, msg.sender
       );
@@ -150,7 +147,7 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
       }
       IERC20(ti.t0).safeTransferFrom(msg.sender, address(this), ti.a0);
       IERC20(ti.t1).safeTransferFrom(msg.sender, address(this), ti.a1);
-    } else {
+    } else if (useSwap) {
       IERC20(ti.t0).safeTransferFrom(msg.sender, address(this), ti.a0);
       IERC20(ti.t1).safeTransferFrom(msg.sender, address(this), ti.bl1);
       IERC20(ti.t1).forceApprove(swapRouter, ti.bl1);
@@ -170,6 +167,8 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
         revert InvalidAmount();
       }
       IERC20(ti.t1).safeTransfer(msg.sender, ti.bl1 - amountIn - ti.a1);
+    } else {
+      revert InvalidAmount();
     }
   }
 
@@ -181,16 +180,17 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
     bool bb = zi.amountB > balanceB;
 
     if (ba && bb) {
-      if (!zi.borrow) revert InvalidAmount();
+      if (!zi.useBorrow) revert InvalidAmount();
     }
-    if (ba || bb) {
-      TokensInfo memory ti;
-      if (ba) {
-        ti = TokensInfo(zi.tokenA, zi.tokenB, zi.amountA, zi.amountB, balanceA, balanceB);
-      } else {
-        ti = TokensInfo(zi.tokenB, zi.tokenA, zi.amountB, zi.amountA, balanceB, balanceA);
-      }
-      _borrowSwap(ti, zi.borrow, fee);
+
+    if (ba) {
+      TokensInfo memory ti =
+        TokensInfo(zi.tokenA, zi.tokenB, zi.amountA, zi.amountB, balanceA, balanceB);
+      _borrowOrSwap(ti, zi.useBorrow, zi.useSwap, fee);
+    } else if (bb) {
+      TokensInfo memory ti =
+        TokensInfo(zi.tokenB, zi.tokenA, zi.amountB, zi.amountA, balanceB, balanceA);
+      _borrowOrSwap(ti, zi.useBorrow, zi.useSwap, fee);
     } else {
       IERC20(zi.tokenA).safeTransferFrom(msg.sender, address(this), zi.amountA);
       IERC20(zi.tokenB).safeTransferFrom(msg.sender, address(this), zi.amountB);
@@ -202,8 +202,9 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
     address tokenB;
     uint amountA;
     uint amountB;
-    bool borrow;
-    bool stake;
+    bool useBorrow; // if true, borrow token from lending pool
+    bool useSwap; // if true, swap a token for another
+    bool stake; // if true, stake liquidity, tokenA value must be == tokenB value in USD
     address recipient;
   }
 

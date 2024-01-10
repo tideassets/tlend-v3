@@ -453,6 +453,68 @@ contract DeployScript is Script, ReservConfig {
     // ParaSwapRepayAdapter paraSwapRepayAdapter = new ParaSwapRepayAdapter(addressesProvider);
   }
 
+  function _deploy_setup_debt_ceiling() internal {
+    PoolConfigurator configurator = PoolConfigurator(addressesProvider.getPoolConfigurator());
+    uint len = reserveSymbols.length;
+    for (uint i = 0; i < len; ++i) {
+      string memory symbol = reserveSymbols[i];
+      address asset = reserveAddresses[symbol][network];
+      ReserveParams memory params = reserveParams[symbol];
+      if (params.debtCeiling > 0) {
+        configurator.setDebtCeiling(asset, params.debtCeiling);
+      }
+    }
+  }
+
+  function _deploy_setup_isomode() internal {
+    PoolConfigurator configurator = PoolConfigurator(addressesProvider.getPoolConfigurator());
+    uint len = reserveSymbols.length;
+    for (uint i = 0; i < len; ++i) {
+      string memory symbol = reserveSymbols[i];
+      address asset = reserveAddresses[symbol][network];
+      ReserveParams memory params = reserveParams[symbol];
+      configurator.setBorrowableInIsolation(asset, params.borrowableIsolation);
+    }
+  }
+
+  function _deploy_setup_emode() internal {
+    PoolConfigurator configurator = PoolConfigurator(addressesProvider.getPoolConfigurator());
+    address oracle = addressesProvider.getPriceOracle();
+    configurator.setEModeCategory(1, 9700, 9750, 10100, oracle, "Stablecoins");
+  }
+
+  function _deploy_setup_liquidation_protocol_fee() internal {
+    PoolConfigurator configurator = PoolConfigurator(addressesProvider.getPoolConfigurator());
+    uint len = reserveSymbols.length;
+    for (uint i = 0; i < len; ++i) {
+      string memory symbol = reserveSymbols[i];
+      address asset = reserveAddresses[symbol][network];
+      ReserveParams memory params = reserveParams[symbol];
+      configurator.setLiquidationProtocolFee(asset, params.liquidationProtocolFee);
+    }
+  }
+
+  function _deploy_update_atoken() internal {
+    AToken _aToken = new AToken(IPool(addressesProvider.getPool()));
+    PoolConfigurator configurator = PoolConfigurator(addressesProvider.getPoolConfigurator());
+    uint len = reserveSymbols.length;
+    for (uint i = 0; i < len; ++i) {
+      string memory symbol = reserveSymbols[i];
+      address asset = reserveAddresses[symbol][network];
+      ConfiguratorInputTypes.UpdateATokenInput memory input = ConfiguratorInputTypes
+        .UpdateATokenInput({
+        asset: asset,
+        treasury: address(treasuryProxy),
+        incentivesController: addressesProvider.getAddress(keccak256("INCENTIVES_CONTROLLER")),
+        name: string(abi.encodePacked("tlend aToken ", symbol)),
+        symbol: string(abi.encodePacked("a", symbol)),
+        implementation: address(_aToken),
+        params: "0x10"
+      });
+      configurator.updateAToken(input);
+    }
+  }
+
   function _deploy_aave() internal {
     _deploy_marketRegistry();
     _deploy_treasury();
@@ -473,6 +535,11 @@ contract DeployScript is Script, ReservConfig {
     _deploy_init_reserves();
     _deploy_init_periphery();
     _deploy_periphery_post();
+    _deploy_setup_debt_ceiling();
+    _deploy_setup_isomode();
+    _deploy_setup_emode();
+    _deploy_setup_liquidation_protocol_fee();
+    _deploy_update_atoken();
   }
 
   //////////////////////////////////////////////////////////////////////////
