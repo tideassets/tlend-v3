@@ -546,7 +546,9 @@ contract DeployScript is Script, ReservConfig {
   ///  deploy tlen : zap, staker, stargate, leverage, liquidator, ...
   //////////////////////////////////////////////////////////////////////////
 
-  function _deploy_zap() internal {}
+  function _deploy_zap() internal {
+    // todo
+  }
   function _deploy_staker() internal {}
   function _deploy_stargate() internal {}
   function _deploy_leverage() internal {}
