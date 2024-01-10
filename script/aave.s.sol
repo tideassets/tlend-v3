@@ -1,5 +1,8 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+// SPDX-License-Identifier: MIT
+// Copyright (C) 2023
+// aave.s.sol : deploy aave 
+//
+pragma solidity ^0.8.20;
 
 import {Script, console2} from "forge-std/Script.sol";
 import {PoolAddressesProviderRegistry} from
@@ -64,7 +67,7 @@ import {IEACAggregatorProxy} from
 
 import {ReservConfig} from "./config.s.sol";
 
-contract DeployScript is Script, ReservConfig {
+contract DeployAAVE is ReservConfig {
   address deployer;
   string market_name;
   string network;
@@ -540,50 +543,5 @@ contract DeployScript is Script, ReservConfig {
     _deploy_setup_emode();
     _deploy_setup_liquidation_protocol_fee();
     _deploy_update_atoken();
-  }
-
-  //////////////////////////////////////////////////////////////////////////
-  ///  deploy tlen : zap, staker, stargate, leverage, liquidator, ...
-  //////////////////////////////////////////////////////////////////////////
-
-  function _deploy_zap() internal {
-    // todo
-  }
-  function _deploy_staker() internal {}
-  function _deploy_stargate() internal {}
-  function _deploy_leverage() internal {}
-  function _deploy_dlp() internal {}
-
-  function _deploy_tlen() internal {
-    _deploy_zap();
-    _deploy_staker();
-    _deploy_stargate();
-    _deploy_leverage();
-    _deploy_dlp();
-  }
-
-  function _run() internal {
-    _deploy_aave();
-    _deploy_tlen();
-  }
-
-  function run() public {
-    deployer = vm.rememberKey(vm.envUint("PRIVATE_KEY"));
-    market_name = vm.envString("MARKET");
-    network = vm.envString("NETWORK");
-    weth = vm.envAddress("WETH");
-    is_test = vm.envBool("TESTNET");
-    l2_suppored = vm.envBool("L2_SUPPORTED");
-    native = vm.envString("NATIVE");
-
-    _before();
-
-    vm.startBroadcast(deployer);
-
-    _run();
-
-    _after();
-
-    vm.stopBroadcast();
   }
 }
