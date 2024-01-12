@@ -11,6 +11,8 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {PausableUpgradeable} from
   "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {IPool, DataTypes} from "@aave/core-v3/contracts/interfaces/IPool.sol";
+import {IAaveOracle} from "@aave/core-v3/contracts/interfaces/IAaveOracle.sol";
+import {IPoolAddressesProvider} from "@aave/core-v3/contracts/interfaces/IPoolAddressesProvider.sol";
 
 import {ISwapNFT} from "./interface/swapNFT.sol";
 import {ISwapPool} from "./interface/swapPool.sol";
@@ -46,6 +48,8 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
   /// @notice staker contract
   address public staker;
 
+  IAaveOracle public oracle;
+
   /**
    * Events **********************
    */
@@ -67,18 +71,23 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
     _disableInitializers();
   }
 
-  function initialize(IPool _lendingPool, address _staker, address _swapRouter, address _nft)
-    external
-    initializer
-  {
-    if (address(_lendingPool) == address(0)) revert AddressZero();
+  function initialize(
+    IPoolAddressesProvider addr_provider,
+    address _staker,
+    address _swapRouter,
+    address _nft
+  ) external initializer {
+    if (address(addr_provider) == address(0)) revert AddressZero();
     if (_swapRouter == address(0)) revert AddressZero();
     if (_nft == address(0)) revert AddressZero();
 
     __Ownable_init(msg.sender);
     __Pausable_init();
 
-    lendingPool = _lendingPool;
+    lendingPool = IPool(addr_provider.getPool());
+    require(address(lendingPool) != address(0), "Invalid lending pool address");
+    oracle = IAaveOracle(addr_provider.getPriceOracle());
+    require(address(oracle) != address(0), "Invalid oracle address");
     swapRouter = _swapRouter;
     nft = ISwapNFT(_nft);
     staker = _staker;
@@ -99,6 +108,11 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
   function setLiquidityMgr(address _nft) external onlyOwner {
     if (_nft == address(0)) revert AddressZero();
     nft = ISwapNFT(_nft);
+  }
+
+  function setStaker(address _staker) external onlyOwner {
+    if (_staker == address(0)) revert AddressZero();
+    staker = _staker;
   }
 
   /**
@@ -204,16 +218,39 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
     uint amountB;
     bool useBorrow; // if true, borrow token from lending pool
     bool useSwap; // if true, swap a token for another
-    bool stake; // if true, stake liquidity, tokenA value must be == tokenB value in USD
+    bool stake; // if true, stake liquidity
     address recipient;
   }
 
-  function zap(ZapInfo memory zi) external returns (uint) {
-    if (zi.amountA == 0 || zi.amountB == 0) revert InvalidAmount();
+  function _isEqual(uint va, uint vb) internal pure returns (bool) {
+    uint diff = va > vb ? va - vb : vb - va;
+    uint maxVal = va > vb ? va : vb;
+    return diff <= maxVal / 100;
+  }
+
+  function _adjustAssetAmounts(ZapInfo memory zi) internal view {
+    uint pa = oracle.getAssetPrice(zi.tokenA);
+    uint pb = oracle.getAssetPrice(zi.tokenB);
+    uint va = zi.amountA * pa;
+    uint vb = zi.amountB * pb;
+    if (_isEqual(va, vb)) {
+      return;
+    }
+    if (va > vb) {
+      zi.amountB = va / pb;
+    } else if (va < vb) {
+      zi.amountA = vb / pa;
+    }
+  }
+
+  function zap(ZapInfo memory zi) external whenNotPaused returns (uint) {
+    if (zi.amountA == 0 && zi.amountB == 0) revert InvalidAmount();
 
     (address token0, address token1) =
       zi.tokenA < zi.tokenB ? (zi.tokenA, zi.tokenB) : (zi.tokenB, zi.tokenA);
-    if (lpPools[token0][token1] == address(0)) revert InvalidTokens();
+    if (lpPools[token0][token1] == address(0)) {
+      revert InvalidTokens();
+    }
 
     ISwapPool pool = ISwapPool(lpPools[token0][token1]);
     _zap0(zi, pool.fee());
@@ -232,7 +269,7 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
     return liquidity;
   }
 
-  function unzap(uint tokenId, address recipient) external returns (uint, uint) {
+  function unzap(uint tokenId, address recipient) external whenNotPaused returns (uint, uint) {
     require(nft.ownerOf(tokenId) == msg.sender, "Not owner of tokenID");
     (,,,,,,, uint128 liquidity,,,,) = nft.positions(tokenId);
     ISwapNFT.DecreaseLiquidityParams memory param = ISwapNFT.DecreaseLiquidityParams({

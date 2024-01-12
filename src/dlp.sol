@@ -5,31 +5,44 @@
 pragma solidity ^0.8.20;
 
 import {IScaledBalanceToken} from "@aave/core-v3/contracts/interfaces/IScaledBalanceToken.sol";
-import "@aave/periphery-v3/contracts/rewards/interfaces/IRewardsController.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ERC20Upgradeable} from
+  "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {TransparentUpgradeableProxy} from
+  "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {IRewardsController} from
+  "@aave/periphery-v3/contracts/rewards/interfaces/IRewardsController.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import "./interface/swapNFT.sol";
 
-contract DlpToken is ERC20, Ownable, IScaledBalanceToken {
-  address public pool;
+contract DlpToken is ERC20Upgradeable, OwnableUpgradeable, IScaledBalanceToken {
   address public rewardsCtrler;
 
-  constructor(string memory name_, string memory symbol_, address rewardsCtrler_, address pool_)
-    ERC20(name_, symbol_)
-    Ownable(msg.sender)
+  function initialize(string memory name_, string memory symbol_, address rewardsCtrler_)
+    public
+    initializer
   {
-    pool = pool_;
+    __ERC20_init(name_, symbol_);
+    __Ownable_init(msg.sender);
     rewardsCtrler = rewardsCtrler_;
   }
 
   function mint(address usr, uint amount) external onlyOwner {
-    IRewardsController(rewardsCtrler).handleAction(usr, balanceOf(usr), totalSupply());
     _mint(usr, amount);
   }
 
   function burn(address usr, uint amount) external onlyOwner {
-    IRewardsController(rewardsCtrler).handleAction(usr, balanceOf(usr), totalSupply());
     _burn(usr, amount);
+  }
+
+  function _update(address from, address to, uint amount) internal override {
+    super._update(from, to, amount);
+    if (from != address(0)) {
+      IRewardsController(rewardsCtrler).handleAction(from, balanceOf(from), totalSupply());
+    }
+    if (to != address(0)) {
+      IRewardsController(rewardsCtrler).handleAction(to, balanceOf(to), totalSupply());
+    }
   }
 
   /**
@@ -67,5 +80,33 @@ contract DlpToken is ERC20, Ownable, IScaledBalanceToken {
    */
   function getPreviousIndex(address) external pure returns (uint) {
     return 0;
+  }
+}
+
+contract DlpTokenFab is Ownable {
+  address public rewardsCtrler;
+  address public dlpTokenImpl;
+
+  constructor(address _rewardsCtrler, address _dlpTokenImpl) Ownable(msg.sender) {
+    rewardsCtrler = _rewardsCtrler;
+    dlpTokenImpl = _dlpTokenImpl;
+  }
+
+  function setRewardsCtrler(address _rewardsCtrler) external onlyOwner {
+    rewardsCtrler = _rewardsCtrler;
+  }
+
+  function setDlpTokenImpl(address _dlpTokenImpl) external onlyOwner {
+    dlpTokenImpl = _dlpTokenImpl;
+  }
+
+  function createDlpToken(string memory name, string memory symbol) external returns (address) {
+    bytes memory data =
+      abi.encodeWithSignature("initialize(string,string,address)", name, symbol, rewardsCtrler);
+
+    TransparentUpgradeableProxy proxy =
+      new TransparentUpgradeableProxy(dlpTokenImpl, msg.sender, data);
+
+    return address(proxy);
   }
 }
