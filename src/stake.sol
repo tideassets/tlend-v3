@@ -68,16 +68,14 @@ contract DlpStaker is OwnableUpgradeable {
     address asset = dlpTokens[pool];
     if (asset != address(0)) {
       delete rewardDataInputs[pool];
-    }
-    RewardsDataTypes.RewardsConfigInput[] storage _inputs = rewardDataInputs[pool];
-    for (uint i = 0; i < inputs.length; i++) {
-      inputs[i].asset = asset;
-      _inputs.push(inputs[i]);
-    }
-    if (asset == address(0)) {
+      rewardsCtrler.configureAssets(inputs);
       return;
     }
-    rewardsCtrler.configureAssets(_inputs);
+
+    RewardsDataTypes.RewardsConfigInput[] storage _inputs = rewardDataInputs[pool];
+    for (uint i = 0; i < inputs.length; i++) {
+      _inputs.push(inputs[i]);
+    }
   }
 
   /**
