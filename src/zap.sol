@@ -12,7 +12,7 @@ import {PausableUpgradeable} from
   "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {IPool, DataTypes} from "@aave/core-v3/contracts/interfaces/IPool.sol";
 import {IAaveOracle} from "@aave/core-v3/contracts/interfaces/IAaveOracle.sol";
-import {IPoolAddressesProvider} from "@aave/core-v3/contracts/interfaces/IPoolAddressesProvider.sol";
+// import {IPoolAddressesProvider} from "@aave/core-v3/contracts/interfaces/IPoolAddressesProvider.sol";
 
 import {ISwapNFT} from "./interface/swapNFT.sol";
 import {ISwapPool} from "./interface/swapPool.sol";
@@ -42,11 +42,11 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
   IPool public lendingPool;
 
   /// @notice tswap AMM router
-  address public swapRouter;
+  ISwapRouter public swapRouter;
   /// @notice liquidity mgr
   ISwapNFT public nft;
   /// @notice staker contract
-  address public staker;
+  IStaker public staker;
 
   IAaveOracle public oracle;
 
@@ -72,25 +72,23 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
   }
 
   function initialize(
-    IPoolAddressesProvider addr_provider,
+    address _pool,
+    address _oracle,
     address _staker,
     address _swapRouter,
     address _nft
   ) external initializer {
-    if (address(addr_provider) == address(0)) revert AddressZero();
     if (_swapRouter == address(0)) revert AddressZero();
     if (_nft == address(0)) revert AddressZero();
 
     __Ownable_init(msg.sender);
     __Pausable_init();
 
-    lendingPool = IPool(addr_provider.getPool());
-    require(address(lendingPool) != address(0), "Invalid lending pool address");
-    oracle = IAaveOracle(addr_provider.getPriceOracle());
-    require(address(oracle) != address(0), "Invalid oracle address");
-    swapRouter = _swapRouter;
+    lendingPool = IPool(_pool);
+    oracle = IAaveOracle(_oracle);
+    swapRouter = ISwapRouter(_swapRouter);
     nft = ISwapNFT(_nft);
-    staker = _staker;
+    staker = IStaker(_staker);
   }
 
   receive() external payable {}
@@ -102,7 +100,7 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
 
   function setSwapRouter(address _swapRouter) external onlyOwner {
     if (_swapRouter == address(0)) revert AddressZero();
-    swapRouter = _swapRouter;
+    swapRouter = ISwapRouter(_swapRouter);
   }
 
   function setLiquidityMgr(address _nft) external onlyOwner {
@@ -112,7 +110,7 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
 
   function setStaker(address _staker) external onlyOwner {
     if (_staker == address(0)) revert AddressZero();
-    staker = _staker;
+    staker = IStaker(_staker);
   }
 
   /**
@@ -124,15 +122,12 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
     return reserveData.variableDebtTokenAddress;
   }
 
-  function setV3Pools(
-    address tokenA,
-    address tokenB,
-    address pool, // if 0, remove
-    uint24 tickSpacing
+  function setSwapPool(
+    address pool
   ) external onlyOwner {
-    if (tokenA == address(0)) revert AddressZero();
-    if (tokenB == address(0)) revert AddressZero();
-    (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
+    address token0 = ISwapPool(pool).token0();
+    address token1 = ISwapPool(pool).token1();
+    uint24 tickSpacing = uint24(ISwapPool(pool).tickSpacing());
     lpPools[token0][token1] = pool;
     poolsTickSpacing[pool] = tickSpacing;
   }
@@ -164,8 +159,8 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
     } else if (useSwap) {
       IERC20(ti.t0).safeTransferFrom(msg.sender, address(this), ti.a0);
       IERC20(ti.t1).safeTransferFrom(msg.sender, address(this), ti.bl1);
-      IERC20(ti.t1).forceApprove(swapRouter, ti.bl1);
-      uint amountIn = ISwapRouter(swapRouter).exactOutputSingle(
+      IERC20(ti.t1).forceApprove(address(swapRouter), ti.bl1);
+      uint amountIn = swapRouter.exactOutputSingle(
         ISwapRouter.ExactOutputSingleParams({
           tokenIn: ti.t1,
           tokenOut: ti.t0,
@@ -262,8 +257,8 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
     IERC20(zi.tokenB).safeTransfer(msg.sender, zi.amountB - amount1);
 
     if (zi.stake) {
-      nft.approve(staker, tokenId);
-      IStaker(staker).lockLiquidity(msg.sender, address(pool), liquidity, tokenId);
+      nft.approve(address(staker), tokenId);
+      staker.lockLiquidity(msg.sender, address(pool), liquidity, tokenId);
     }
     emit Zapped(msg.sender, zi.tokenA, zi.tokenB, amount0, amount1);
     return liquidity;

@@ -16,7 +16,7 @@ import {
 import "./dlp.sol";
 
 contract DlpStaker is OwnableUpgradeable {
-  uint public constant DURATION = 30 days;
+  uint public DURATION = 30 days;
   address public zap;
   DlpTokenFab public dlpTokenFab;
 
@@ -53,7 +53,20 @@ contract DlpStaker is OwnableUpgradeable {
 
   event DlpLocked(address indexed pool, uint liquidity, uint start);
 
+  function setZap(address _zap) external onlyOwner {
+    zap = _zap;
+  }
+
+  function setNftMgr(address _nftMgr) external onlyOwner {
+    nft = ISwapNFT(_nftMgr);
+  }
+
+  function setDuration(uint _duration) external onlyOwner {
+    DURATION = _duration;
+  }
+
   function setRewardsCtrler(address _rewardsCtrler) external onlyOwner {
+    rewardsCtrler = IRewardsController(_rewardsCtrler);
     dlpTokenFab.setRewardsCtrler(_rewardsCtrler);
   }
 
@@ -78,15 +91,18 @@ contract DlpStaker is OwnableUpgradeable {
     }
   }
 
-  /**
-   * @notice lock liquidity
-   * @param pool which pool that the liquidity is belong to
-   * @param liquidity amount
-   * @param tokenId  nft token id
-   */
-  function lockLiquidity(address user, address pool, uint liquidity, uint tokenId) external {
-    require(msg.sender == zap || msg.sender == user, "Dlp: not zap or user");
+  function lockLiquidity(address user, address pool, uint liquidity, uint tokenId) external onlyZap {
+    _lockLiquidity(user, pool, liquidity, tokenId);
+  }
+
+  function _lockLiquidity(address user, address pool, uint liquidity, uint tokenId)
+    internal
+    onlyZap
+  {
+    require(liquidity > 0, "Dlp: zero liquidity");
+    require(nft.ownerOf(tokenId) == msg.sender, "Dlp: not owner");
     require(dlpParams[tokenId].user == address(0), "Dlp: already locked");
+
     dlpParams[tokenId] = DlpParams(user, pool, liquidity, block.timestamp, DURATION);
     address dlpToken = dlpTokens[pool];
     if (dlpToken == address(0)) {
@@ -102,6 +118,17 @@ contract DlpStaker is OwnableUpgradeable {
 
     nft.safeTransferFrom(msg.sender, address(this), tokenId);
     emit DlpLocked(pool, liquidity, block.timestamp);
+  }
+
+  /**
+   * @notice lock liquidity
+   * @param pool which pool that the liquidity is belong to
+   * @param liquidity amount
+   * @param tokenId  nft token id
+   */
+  function lockLiquidity(address pool, uint liquidity, uint tokenId) external {
+    address user = msg.sender;
+    _lockLiquidity(user, pool, liquidity, tokenId);
   }
 
   /**
