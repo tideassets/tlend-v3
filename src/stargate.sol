@@ -128,27 +128,27 @@ contract Stargater is OwnableUpgradeable {
    * @param _xChainBorrowFeePercent Cross chain borrow fee ratio
    */
   function initialize(
-    IStargateRouter _router,
-    IRouterETH _routerETH,
-    IPool _lendingPool,
-    WETH9 _weth,
+    address _router,
+    address _routerETH,
+    address _lendingPool,
+    address _weth,
     address _treasury,
     uint _xChainBorrowFeePercent,
     uint _maxSlippage
   ) external initializer {
-    if (address(_router) == address(0)) revert AddressZero();
-    if (address(_lendingPool) == address(0)) revert AddressZero();
-    if (address(_weth) == address(0)) revert AddressZero();
+    if (_router == address(0)) revert AddressZero();
+    if (_lendingPool == address(0)) revert AddressZero();
+    if (_weth == address(0)) revert AddressZero();
     if (_treasury == address(0)) revert AddressZero();
     if (_xChainBorrowFeePercent > MAX_REASONABLE_FEE) revert AddressZero();
     if (_maxSlippage < MAX_SLIPPAGE) revert SlippageSetToHigh();
 
-    router = _router;
-    routerETH = _routerETH;
-    lendingPool = _lendingPool;
+    router = IStargateRouter(_router);
+    routerETH = IRouterETH(_routerETH);
+    lendingPool = IPool(_lendingPool);
     daoTreasury = _treasury;
     xChainBorrowFeePercent = _xChainBorrowFeePercent;
-    weth = _weth;
+    weth = WETH9(payable(_weth));
     maxSlippage = _maxSlippage;
     __Ownable_init(msg.sender);
   }

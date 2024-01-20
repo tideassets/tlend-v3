@@ -32,10 +32,9 @@ contract DlpStaker is OwnableUpgradeable {
     _;
   }
 
-  function initialize(address _nftMgr, address _zap, address _fab) public initializer {
+  function initialize(address _nftMgr, address _fab) public initializer {
     __Ownable_init(msg.sender);
     nft = ISwapNFT(_nftMgr);
-    zap = _zap;
     dlpTokenFab = DlpTokenFab(_fab);
   }
 

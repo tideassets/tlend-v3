@@ -77,18 +77,18 @@ contract Leverager is OwnableUpgradeable {
    * @param _feePercent leveraging fee ratio.
    * @param _treasury address.
    */
-  function initialize(IPool _lendingPool, WETH9 _weth, uint _feePercent, address _treasury)
+  function initialize(address _lendingPool, address _weth, address _treasury, uint _feePercent)
     public
     initializer
   {
-    if (address(_lendingPool) == address(0)) revert AddressZero();
-    if (address(_weth) == address(0)) revert AddressZero();
+    if (_lendingPool == address(0)) revert AddressZero();
+    if (_weth == address(0)) revert AddressZero();
     if (_treasury == address(0)) revert AddressZero();
     if (_feePercent > MAX_REASONABLE_FEE) revert InvalidRatio();
     __Ownable_init(msg.sender);
 
-    lendingPool = _lendingPool;
-    weth = _weth;
+    lendingPool = IPool(_lendingPool);
+    weth = WETH9(payable(_weth));
     feePercent = _feePercent;
     treasury = _treasury;
   }

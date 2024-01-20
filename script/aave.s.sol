@@ -67,7 +67,7 @@ import {IEACAggregatorProxy} from
 
 import {ReservConfig} from "./config.s.sol";
 
-contract DeployAAVE is ReservConfig {
+contract DeployAAVE is ReservConfig, Script {
   address deployer;
   string market_name;
   string network;
@@ -92,7 +92,6 @@ contract DeployAAVE is ReservConfig {
   DelegationAwareAToken public dToken;
   StableDebtToken public sToken;
   VariableDebtToken public vToken;
-
 
   function _deploy_marketRegistry() internal {
     registry = new PoolAddressesProviderRegistry(deployer);
@@ -538,5 +537,33 @@ contract DeployAAVE is ReservConfig {
     _deploy_setup_emode();
     _deploy_setup_liquidation_protocol_fee();
     _deploy_update_atoken();
+  }
+
+  function _before() internal virtual {
+    deployer = vm.rememberKey(vm.envUint("PRIVATE_KEY"));
+    market_name = vm.envString("MARKET");
+    network = vm.envString("NETWORK");
+    weth = vm.envAddress("WETH");
+    is_test = vm.envBool("TESTNET");
+    l2_suppored = vm.envBool("L2_SUPPORTED");
+    native = vm.envString("NATIVE");
+
+    _init();
+  }
+
+  function _after() internal virtual {
+    // todo
+  }
+
+  function _run() internal virtual {
+    vm.startBroadcast(deployer);
+    _deploy_aave();
+    vm.stopBroadcast();
+  }
+
+  function run() public {
+    _before();
+    _run();
+    _after();
   }
 }

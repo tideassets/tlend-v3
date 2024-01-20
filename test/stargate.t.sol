@@ -21,7 +21,7 @@ contract StargaterTest is Test {
     token1 = new TokenMock("Token1", "T1");
 
     stargater = new Stargater();
-    stargater.initialize(_router, _eth_router, IPool(address(pool)), _weth, address(this), 100, 10);
+    stargater.initialize(address(_router), address(_eth_router), address(pool), address(_weth), address(this), 100, 10);
   }
 
   function testBorrow() public {

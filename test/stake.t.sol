@@ -19,7 +19,7 @@ contract StakerTest is Test {
     nft = new SwapNFTMock();
     RewardsCtrlerMock rewardsCtrler = new RewardsCtrlerMock();
     DlpTokenFab dlpTokenFab = new DlpTokenFab(address(rewardsCtrler), address(dlpTokenImpl));
-    staker.initialize(address(nft), address(this), address(dlpTokenFab));
+    staker.initialize(address(nft), address(dlpTokenFab));
 
     token0 = new TokenMock("T0", "T0");
     token1 = new TokenMock("T1", "T1");

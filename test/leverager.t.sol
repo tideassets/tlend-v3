@@ -15,7 +15,7 @@ contract LeveragerTest is Test {
     leverager = new Leverager();
     LendPoolMock lendingPool = new LendPoolMock();
     WETH9 weth = new WETH9();
-    leverager.initialize(IPool(address(lendingPool)), weth, 100, address(this));
+    leverager.initialize(address(lendingPool), address(weth), address(this), 100);
 
     lendingPool.setLtv(8000);
     lendingPool.setLiquidationBonus(10500);
