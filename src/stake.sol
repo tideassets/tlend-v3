@@ -8,6 +8,11 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {DlpToken, DlpTokenFab} from "./dlp.sol";
 import {ISwapNFT} from "./interface/swapNFT.sol";
 
+interface IFundStaker {
+  function stake(address usr, uint amount) external;
+  function unstake(address usr, uint amount) external;
+}
+
 contract DlpStaker is OwnableUpgradeable {
   uint public DURATION = 30 days;
   address public zap;
@@ -32,13 +37,16 @@ contract DlpStaker is OwnableUpgradeable {
     _;
   }
 
+  event DlpLocked(address indexed who, address indexed pool, uint indexed tokenId, uint liquidity);
+  event DlpUnlocked(
+    address indexed who, address indexed pool, uint indexed tokenId, uint liquidity
+  );
+
   function initialize(address _nftMgr, address _fab) public initializer {
     __Ownable_init(msg.sender);
     nft = ISwapNFT(_nftMgr);
     dlpTokenFab = DlpTokenFab(_fab);
   }
-
-  event DlpLocked(address indexed pool, uint liquidity, uint start);
 
   function setZap(address _zap) external onlyOwner {
     zap = _zap;
@@ -78,7 +86,7 @@ contract DlpStaker is OwnableUpgradeable {
     DlpToken(dlpToken).mint(user, liquidity);
 
     nft.safeTransferFrom(msg.sender, address(this), tokenId);
-    emit DlpLocked(pool, liquidity, block.timestamp);
+    emit DlpLocked(user, pool, tokenId, liquidity);
   }
 
   /**
@@ -105,5 +113,6 @@ contract DlpStaker is OwnableUpgradeable {
     DlpToken(dlpToken).burn(msg.sender, params.liquidity);
     delete dlpParams[tokenId];
     nft.safeTransferFrom(address(this), recipient, tokenId);
+    emit DlpUnlocked(msg.sender, params.pool, tokenId, params.liquidity);
   }
 }

@@ -7,14 +7,14 @@ pragma solidity ^0.8.20;
 import {Script, console2} from "forge-std/Script.sol";
 import {TransparentUpgradeableProxy} from
   "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import {DeployAAVE} from "./aave.s.sol";
 import {Zap} from "src/zap.sol";
 import {Leverager} from "src/leverager.sol";
 import {Stargater} from "src/stargate.sol";
 import {DlpStaker} from "src/stake.sol";
 import {DlpToken, DlpTokenFab} from "src/dlp.sol";
+import {DeployAAVE} from "./aave.s.sol";
 
-contract DeployTLend is Script, DeployAAVE {
+contract DeployTLend is DeployAAVE {
   //////////////////////////////////////////////////////////////////////////
   ///  deploy tlen : zap, staker, stargate, leverage, liquidator, ...
   //////////////////////////////////////////////////////////////////////////
@@ -22,7 +22,6 @@ contract DeployTLend is Script, DeployAAVE {
   address public swapRouter;
   address public stargateRouter;
   address public stargateETHRouter;
-  address public treasury;
 
   Zap public zap;
   DlpStaker public staker;
@@ -67,9 +66,9 @@ contract DeployTLend is Script, DeployAAVE {
       stargateETHRouter,
       pool,
       address(weth),
-      treasury,
+      daoTreasury,
       0,
-      0
+      20
     );
     TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(
       address(new Stargater()),
@@ -82,7 +81,7 @@ contract DeployTLend is Script, DeployAAVE {
   function _deploy_leverage() internal {
     address pool = addressesProvider.getPool();
     bytes memory data = abi.encodeWithSignature(
-      "initialize(address,address,address,uint256)", pool, address(weth), treasury, 0
+      "initialize(address,address,address,uint256)", pool, address(weth), daoTreasury, 0
     );
     TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(
       address(new Stargater()),
@@ -102,7 +101,20 @@ contract DeployTLend is Script, DeployAAVE {
   }
 
   function _deploy_set_provider_addresses() internal {
-    // todo
+    bytes32 zapHash = keccak256("ZAP");
+    addressesProvider.setAddress(zapHash, address(zap));
+
+    bytes32 stakerHash = keccak256("STAKER");
+    addressesProvider.setAddress(stakerHash, address(staker));
+
+    bytes32 stargateHash = keccak256("STARGATE");
+    addressesProvider.setAddress(stargateHash, address(stargater));
+
+    bytes32 leveragerHash = keccak256("LEVERAGER");
+    addressesProvider.setAddress(leveragerHash, address(leverager));
+
+    bytes32 dlpTokenFabHash = keccak256("DLP_TOKEN_FAB");
+    addressesProvider.setAddress(dlpTokenFabHash, address(dlpTokenFab));
   }
 
   function _deploy_tlen() internal {
@@ -110,10 +122,18 @@ contract DeployTLend is Script, DeployAAVE {
     _deploy_staker();
     _deploy_zap();
     _deploy_stargate();
-    _deploy_leverage();
+    // _deploy_leverage();
 
     _deploy_set_provider_addresses();
     _deploy_sets();
+  }
+
+  function _before() internal override {
+    super._before();
+    swapNFT = vm.envAddress("SWAP_NFT");
+    swapRouter = vm.envAddress("SWAP_ROUTER");
+    stargateRouter = vm.envAddress("STARGATE_ROUTER");
+    stargateETHRouter = vm.envAddress("STARGATE_ETH_ROUTER");
   }
 
   function _run() internal virtual override {

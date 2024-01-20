@@ -114,6 +114,10 @@ contract Stargater is OwnableUpgradeable {
 
   error LengthMismatch();
 
+  event Borrow(
+    address who, address indexed asset, uint amount, uint interestRateMode, uint16 dstChainId
+  );
+
   constructor() {
     _disableInitializers();
   }
@@ -268,6 +272,7 @@ contract Stargater is OwnableUpgradeable {
         bytes("")
       );
     }
+    emit Borrow(msg.sender, asset, amount, interestRateMode, dstChainId);
   }
 
   /**

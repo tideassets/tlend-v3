@@ -62,6 +62,14 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
     uint _amountB
   );
 
+  event Unzapped(
+    address indexed _from,
+    uint indexed _tokenId,
+    address indexed _recipient,
+    uint _amountA,
+    uint _amountB
+  );
+
   /**
    * Errors **********************
    */
@@ -122,9 +130,7 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
     return reserveData.variableDebtTokenAddress;
   }
 
-  function setSwapPool(
-    address pool
-  ) external onlyOwner {
+  function setSwapPool(address pool) external onlyOwner {
     address token0 = ISwapPool(pool).token0();
     address token1 = ISwapPool(pool).token1();
     uint24 tickSpacing = uint24(ISwapPool(pool).tickSpacing());
@@ -286,6 +292,7 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
     );
 
     nft.burn(tokenId);
+    emit Unzapped(msg.sender, tokenId, recipient, amount0, amount1);
     return (amount0, amount1);
   }
 

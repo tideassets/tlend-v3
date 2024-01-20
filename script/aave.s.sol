@@ -75,10 +75,14 @@ contract DeployAAVE is ReservConfig, Script {
   bool is_test;
   address public weth;
   string native;
+  address public daoTreasury;
+  uint chainId;
+  address public TTL;
+  address public TTL_VAULT;
 
   PoolAddressesProviderRegistry public registry;
   InitializableAdminUpgradeabilityProxy public treasuryProxy;
-  InitializableAdminUpgradeabilityProxy public stakeProxy;
+  // InitializableAdminUpgradeabilityProxy public stakeProxy;
   PoolAddressesProvider addressesProvider;
   ReservesSetupHelper helper;
   L2Encoder l2Encoder;
@@ -230,8 +234,9 @@ contract DeployAAVE is ReservConfig, Script {
     }
     mgr.setRewardsController(ctrlProxy);
     RewardsController(ctrlProxy).initialize(address(mgr));
-    // PullRewardsTransferStrategy pullStrategy =
-    new PullRewardsTransferStrategy(address(ctrlProxy), deployer, deployer);
+    PullRewardsTransferStrategy pullStrategy =
+      new PullRewardsTransferStrategy(address(ctrlProxy), deployer, TTL_VAULT);
+    RewardsController(ctrlProxy).setTransferStrategy(TTL, pullStrategy);
   }
 
   function _new_aToken() internal {
@@ -356,7 +361,7 @@ contract DeployAAVE is ReservConfig, Script {
       underlyingAssetDecimals: 18,
       interestRateStrategyAddress: address(strategy),
       underlyingAsset: asset,
-      treasury: address(treasuryProxy),
+      treasury: daoTreasury,
       incentivesController: addressesProvider.getAddress(keccak256("INCENTIVES_CONTROLLER")),
       aTokenName: string(abi.encodePacked("tlend aToken ", symbol)),
       aTokenSymbol: string(abi.encodePacked("a", symbol)),
@@ -501,7 +506,7 @@ contract DeployAAVE is ReservConfig, Script {
       ConfiguratorInputTypes.UpdateATokenInput memory input = ConfiguratorInputTypes
         .UpdateATokenInput({
         asset: asset,
-        treasury: address(treasuryProxy),
+        treasury: daoTreasury,
         incentivesController: addressesProvider.getAddress(keccak256("INCENTIVES_CONTROLLER")),
         name: string(abi.encodePacked("tlend aToken ", symbol)),
         symbol: string(abi.encodePacked("a", symbol)),
@@ -514,7 +519,7 @@ contract DeployAAVE is ReservConfig, Script {
 
   function _deploy_aave() internal {
     _deploy_marketRegistry();
-    _deploy_treasury();
+    // _deploy_treasury();
     _deploy_addresses_provider();
     if (is_test) {
       _deploy_test_tokens();
@@ -547,6 +552,10 @@ contract DeployAAVE is ReservConfig, Script {
     is_test = vm.envBool("TESTNET");
     l2_suppored = vm.envBool("L2_SUPPORTED");
     native = vm.envString("NATIVE");
+    daoTreasury = vm.envAddress("DAO_TREASURY");
+    chainId = vm.envUint("CHAIN_ID");
+    TTL = vm.envAddress("TTL");
+    TTL_VAULT = vm.envAddress("TTL_VAULT");
 
     _init();
   }
