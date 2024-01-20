@@ -178,14 +178,12 @@ contract DeployAAVE is ReservConfig, Script {
   function _deploy_pool() internal {
     Pool pool = new Pool(addressesProvider);
     addressesProvider.setPoolImpl(address(pool));
-    Pool(addressesProvider.getPool()).initialize(addressesProvider);
   }
 
   function _deploy_l2_pool() internal {
     L2Pool l2pool = new L2Pool(addressesProvider);
     addressesProvider.setPoolImpl(address(l2pool));
     address poolProxy = addressesProvider.getPool();
-    L2Pool(poolProxy).initialize(addressesProvider);
     l2Encoder = new L2Encoder(L2Pool(poolProxy));
   }
 
@@ -193,7 +191,6 @@ contract DeployAAVE is ReservConfig, Script {
     PoolConfigurator configurator = new PoolConfigurator();
     addressesProvider.setPoolConfiguratorImpl(address(configurator));
     address configProxy = addressesProvider.getPoolConfigurator();
-    PoolConfigurator(configProxy).initialize(addressesProvider);
     PoolConfigurator(configProxy).updateFlashloanPremiumTotal(5);
     PoolConfigurator(configProxy).updateFlashloanPremiumToProtocol(4);
     helper = new ReservesSetupHelper();
@@ -223,20 +220,19 @@ contract DeployAAVE is ReservConfig, Script {
   }
 
   function _deploy_incentives() internal {
-    RewardsController ctrl = new RewardsController();
-    EmissionManager mgr = new EmissionManager(address(ctrl), deployer);
-    ctrl.initialize(address(0));
+    RewardsController ctrlImpl = new RewardsController();
+    EmissionManager mgr = new EmissionManager(address(0), deployer);
+    bytes memory data = abi.encodeWithSignature("initialize(address)", address(mgr));
+    InitializableAdminUpgradeabilityProxy proxy = new InitializableAdminUpgradeabilityProxy();
+    proxy.initialize(address(ctrlImpl), deployer, data);
+    RewardsController ctrl = RewardsController(address(proxy));
+
     bytes32 ctrl_hash = keccak256("INCENTIVES_CONTROLLER");
-    address ctrlProxy = addressesProvider.getAddress(ctrl_hash);
-    if (ctrlProxy == address(0)) {
-      addressesProvider.setAddressAsProxy(ctrl_hash, address(ctrl));
-      ctrlProxy = addressesProvider.getAddress(ctrl_hash);
-    }
-    mgr.setRewardsController(ctrlProxy);
-    RewardsController(ctrlProxy).initialize(address(mgr));
+    addressesProvider.setAddress(ctrl_hash, address(ctrl));
+    mgr.setRewardsController(address(ctrl));
     PullRewardsTransferStrategy pullStrategy =
-      new PullRewardsTransferStrategy(address(ctrlProxy), deployer, TTL_VAULT);
-    RewardsController(ctrlProxy).setTransferStrategy(TTL, pullStrategy);
+      new PullRewardsTransferStrategy(address(ctrl), deployer, TTL_VAULT);
+    ctrl.setTransferStrategy(TTL, pullStrategy);
   }
 
   function _new_aToken() internal {

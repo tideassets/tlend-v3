@@ -85,6 +85,16 @@ abstract contract ReservConfig {
       reserveAddresses["AAVE"]["optimism"] = 0x76FB31fb4af56892A25e32cFC43De717950c9278;
       reserveAddresses["EURS"]["optimism"] = 0x8c6f28f2F1A3C87F0f938b96d27520d9751ec8d9;
     }
+    {
+      reserveAddresses["DAI"]["arbitrum-sepolia"] = 0x9714e454274dC66BE57FA8361233221a376f4C2e;
+      reserveAddresses["LINK"]["arbitrum-sepolia"] = 0xaB7A6599C1804443C04c998D2be87Dc00A8c07bA;
+      reserveAddresses["USDC"]["arbitrum-sepolia"] = 0x39E618D761fdD06bF65065d2974128aAeC7b3Fed;
+      reserveAddresses["WBTC"]["arbitrum-sepolia"] = 0x4Ac0ED77C4375D48B51D56cc49b7710c3640b9c2;
+      reserveAddresses["WETH"]["arbitrum-sepolia"] = 0xceBD1a3E9aaD7E60eDD509809e7f9cFF449b7851;
+      reserveAddresses["USDT"]["arbitrum-sepolia"] = 0x0000000000000000000000000000000000000000;
+      reserveAddresses["AAVE"]["arbitrum-sepolia"] = 0x0FDc113b620F994fa7FE03b7454193f519494D40;
+      reserveAddresses["EURS"]["arbitrum-sepolia"] = 0x0000000000000000000000000000000000000000;
+    }
   }
 
   function _init_reserve_oracles() internal {
