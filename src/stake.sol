@@ -5,15 +5,8 @@
 pragma solidity ^0.8.20;
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {TransparentUpgradeableProxy} from
-  "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import {
-  IRewardsController,
-  RewardsDataTypes,
-  IEACAggregatorProxy,
-  ITransferStrategyBase
-} from "@aave/periphery-v3/contracts/rewards/interfaces/IRewardsController.sol";
-import "./dlp.sol";
+import {DlpToken, DlpTokenFab} from "./dlp.sol";
+import {ISwapNFT} from "./interface/swapNFT.sol";
 
 contract DlpStaker is OwnableUpgradeable {
   uint public DURATION = 30 days;
@@ -24,18 +17,14 @@ contract DlpStaker is OwnableUpgradeable {
   mapping(uint => DlpParams) public dlpParams;
   // pool => DlpToken
   mapping(address => address) public dlpTokens;
-  // pool => reward data input
-  mapping(address => RewardsDataTypes.RewardsConfigInput[]) public rewardDataInputs;
 
   ISwapNFT public nft;
-  IRewardsController public rewardsCtrler;
 
   struct DlpParams {
     address user;
     address pool;
     uint liquidity;
-    uint start;
-    uint duration;
+    uint end;
   }
 
   modifier onlyZap() {
@@ -43,18 +32,22 @@ contract DlpStaker is OwnableUpgradeable {
     _;
   }
 
-  function initialize(address _nftMgr, address _zap, address _rewardsCtrler) public initializer {
+  function initialize(address _nftMgr, address _zap, address _fab) public initializer {
     __Ownable_init(msg.sender);
     nft = ISwapNFT(_nftMgr);
     zap = _zap;
-    rewardsCtrler = IRewardsController(_rewardsCtrler);
-    dlpTokenFab = new DlpTokenFab(_rewardsCtrler, address(new DlpToken()));
+    dlpTokenFab = DlpTokenFab(_fab);
   }
 
   event DlpLocked(address indexed pool, uint liquidity, uint start);
 
   function setZap(address _zap) external onlyOwner {
     zap = _zap;
+  }
+
+  function setSwapPool(address pool) external onlyOwner {
+    require(dlpTokens[pool] == address(0), "Dlp: already set");
+    dlpTokens[pool] = dlpTokenFab.createDlpToken("DLP token", "DLP");
   }
 
   function setNftMgr(address _nftMgr) external onlyOwner {
@@ -65,30 +58,8 @@ contract DlpStaker is OwnableUpgradeable {
     DURATION = _duration;
   }
 
-  function setRewardsCtrler(address _rewardsCtrler) external onlyOwner {
-    rewardsCtrler = IRewardsController(_rewardsCtrler);
-    dlpTokenFab.setRewardsCtrler(_rewardsCtrler);
-  }
-
   function setDlpTokenImpl(address _dlpTokenImpl) external onlyOwner {
     dlpTokenFab.setDlpTokenImpl(_dlpTokenImpl);
-  }
-
-  function setRewardConfig(address pool, RewardsDataTypes.RewardsConfigInput[] memory inputs)
-    public
-    onlyOwner
-  {
-    address asset = dlpTokens[pool];
-    if (asset != address(0)) {
-      delete rewardDataInputs[pool];
-      rewardsCtrler.configureAssets(inputs);
-      return;
-    }
-
-    RewardsDataTypes.RewardsConfigInput[] storage _inputs = rewardDataInputs[pool];
-    for (uint i = 0; i < inputs.length; i++) {
-      _inputs.push(inputs[i]);
-    }
   }
 
   function lockLiquidity(address user, address pool, uint liquidity, uint tokenId) external onlyZap {
@@ -103,17 +74,8 @@ contract DlpStaker is OwnableUpgradeable {
     require(nft.ownerOf(tokenId) == msg.sender, "Dlp: not owner");
     require(dlpParams[tokenId].user == address(0), "Dlp: already locked");
 
-    dlpParams[tokenId] = DlpParams(user, pool, liquidity, block.timestamp, DURATION);
+    dlpParams[tokenId] = DlpParams(user, pool, liquidity, block.timestamp + DURATION);
     address dlpToken = dlpTokens[pool];
-    if (dlpToken == address(0)) {
-      dlpToken = dlpTokenFab.createDlpToken("DLP", "DLP");
-      dlpTokens[pool] = dlpToken;
-      RewardsDataTypes.RewardsConfigInput[] storage _inputs = rewardDataInputs[pool];
-      for (uint i = 0; i < _inputs.length; i++) {
-        _inputs[i].asset = dlpToken;
-      }
-      setRewardConfig(pool, _inputs);
-    }
     DlpToken(dlpToken).mint(user, liquidity);
 
     nft.safeTransferFrom(msg.sender, address(this), tokenId);
@@ -138,7 +100,7 @@ contract DlpStaker is OwnableUpgradeable {
   function unlockLiquidity(uint tokenId, address recipient) external {
     DlpParams memory params = dlpParams[tokenId];
     require(params.user == msg.sender, "Dlp: not owner");
-    require(block.timestamp - params.start > params.duration, "Dlp: not expired");
+    require(block.timestamp > params.end, "Dlp: not expired");
     address dlpToken = dlpTokens[params.pool];
     require(dlpToken != address(0), "Dlp: not locked");
     DlpToken(dlpToken).burn(msg.sender, params.liquidity);

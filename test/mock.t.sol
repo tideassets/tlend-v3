@@ -5,10 +5,14 @@ import {Test, console2} from "forge-std/Test.sol";
 import {ERC721, IERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {ERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IPool, DataTypes} from "@aave/core-v3/contracts/interfaces/IPool.sol";
+import {MockReserveConfiguration} from
+  "@aave/core-v3/contracts/mocks/helpers/MockReserveConfiguration.sol";
 import {IEACAggregatorProxy} from "src/interface/chainlink.sol";
 import {ISwapNFT} from "src/interface/swapNFT.sol";
 import {ISwapRouter} from "src/interface/swapRouter.sol";
 import {ISwapPool} from "src/interface/swapPool.sol";
+import {IStargateRouter} from "src/interface/stargate.sol";
 
 contract StakerMock {
   using SafeERC20 for IERC20;
@@ -295,7 +299,7 @@ contract OracleMock is IEACAggregatorProxy {
   }
 }
 
-contract LendPoolMock {
+contract LendPoolMock is MockReserveConfiguration {
   using SafeERC20 for IERC20;
 
   constructor() {}
@@ -350,6 +354,15 @@ contract LendPoolMock {
     ltv = 10000;
     healthFactor = 11000;
   }
+
+  function getConfiguration(address asset)
+    public
+    view
+    returns (DataTypes.ReserveConfigurationMap memory)
+  {
+    console2.log("getConfiguration", asset);
+    return configuration;
+  }
 }
 
 contract AAVEOracleMock {
@@ -365,5 +378,57 @@ contract AAVEOracleMock {
   function getAssetPrice(address asset) external view returns (uint) {
     console2.log("getAssetPrice", asset);
     return prices[asset];
+  }
+}
+
+contract StargateRouterMock {
+  using SafeERC20 for IERC20;
+  // ass = assets[chainId][poolId]
+
+  mapping(uint => mapping(uint => address)) public assets;
+
+  function setAsset(uint chainId, uint poolId, address asset) external {
+    assets[chainId][poolId] = asset;
+  }
+
+  function swap(
+    uint16 _dstChainId,
+    uint _srcPoolId,
+    uint _dstPoolId,
+    address payable _refundAddress,
+    uint _amountLD,
+    uint _minAmountLD,
+    IStargateRouter.lzTxObj memory,
+    bytes calldata _to,
+    bytes calldata
+  ) external payable {
+    console2.log("swap", _dstChainId, _srcPoolId, _dstPoolId);
+    console2.log("swap", _refundAddress, _amountLD, _minAmountLD);
+    address to = abi.decode(_to, (address));
+
+    address asset = assets[_dstChainId][_dstPoolId];
+    require(asset != address(0), "invalid chainId or poolId");
+    IERC20(asset).safeTransfer(to, _amountLD);
+  }
+}
+
+contract StargateETHRouterMock {
+  function swapETH(
+    uint16 _dstChainId, // destination Stargate chainId
+    address payable _refundAddress, // refund additional messageFee to this address
+    bytes calldata _toAddress, // the receiver of the destination ETH
+    uint _amountLD, // the amount, in Local Decimals, to be swapped
+    uint _minAmountLD // the minimum amount accepted out on destination
+  ) external payable {
+    console2.log("swapETH", _dstChainId, _amountLD, _minAmountLD);
+    console2.log("swapETH", _refundAddress);
+    address to = abi.decode(_toAddress, (address));
+    payable(to).transfer(_amountLD);
+  }
+}
+
+contract RewardsCtrlerMock {
+  function claimRewards(address user, address[] calldata assets) external {
+    console2.log("claimRewards", user);
   }
 }

@@ -45,6 +45,12 @@ contract DeployTLend is Script, DeployAAVE {
     _deploy_tlen();
   }
 
+  function _before() internal {
+    _init();
+  }
+
+  function _after() internal {}
+
   function run() public {
     deployer = vm.rememberKey(vm.envUint("PRIVATE_KEY"));
     market_name = vm.envString("MARKET");
@@ -54,12 +60,10 @@ contract DeployTLend is Script, DeployAAVE {
     l2_suppored = vm.envBool("L2_SUPPORTED");
     native = vm.envString("NATIVE");
 
-    _before();
-
     vm.startBroadcast(deployer);
 
+    _before();
     _run();
-
     _after();
 
     vm.stopBroadcast();

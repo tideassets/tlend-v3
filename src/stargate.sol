@@ -53,7 +53,7 @@ import {IStargateRouter, IRouterETH} from "./interface/stargate.sol";
 
 /// @title Borrow gate via stargate
 /// @author Radiant
-contract StargateBorrow is OwnableUpgradeable {
+contract Stargater is OwnableUpgradeable {
   using SafeERC20 for IERC20;
 
   /// @notice FEE ratio DIVISOR

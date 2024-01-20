@@ -93,11 +93,6 @@ contract DeployAAVE is ReservConfig {
   StableDebtToken public sToken;
   VariableDebtToken public vToken;
 
-  function _before() internal {
-    _init();
-  }
-
-  function _after() internal {}
 
   function _deploy_marketRegistry() internal {
     registry = new PoolAddressesProviderRegistry(deployer);

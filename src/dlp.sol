@@ -36,13 +36,14 @@ contract DlpToken is ERC20Upgradeable, OwnableUpgradeable, IScaledBalanceToken {
   }
 
   function _update(address from, address to, uint amount) internal override {
-    super._update(from, to, amount);
     if (from != address(0)) {
       IRewardsController(rewardsCtrler).handleAction(from, balanceOf(from), totalSupply());
     }
     if (to != address(0)) {
       IRewardsController(rewardsCtrler).handleAction(to, balanceOf(to), totalSupply());
     }
+
+    super._update(from, to, amount);
   }
 
   /**
