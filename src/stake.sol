@@ -42,6 +42,13 @@ contract DlpStaker is OwnableUpgradeable {
     address indexed who, address indexed pool, uint indexed tokenId, uint liquidity
   );
 
+  event SetSwapNFT(address indexed old, address indexed current);
+  event SetSwapPool(address indexed pool, address indexed dlpToken);
+  event SetDuration(uint indexed duration);
+  event SetZap(address indexed zap);
+  event SetDlpTokenImpl(address indexed old, address indexed impl);
+  event SetRewardsController(address indexed old, address indexed current);
+
   function initialize(address _nftMgr, address _fab) public initializer {
     __Ownable_init(msg.sender);
     nft = ISwapNFT(_nftMgr);
@@ -50,15 +57,20 @@ contract DlpStaker is OwnableUpgradeable {
 
   function setZap(address _zap) external onlyOwner {
     zap = _zap;
+    emit SetZap(_zap);
   }
 
   function setSwapPool(address pool) external onlyOwner {
     require(dlpTokens[pool] == address(0), "Dlp: already set");
-    dlpTokens[pool] = dlpTokenFab.createDlpToken("DLP token", "DLP");
+    address dlpToken = dlpTokenFab.createDlpToken("DLP Token", "DLP");
+    dlpTokens[pool] = dlpToken;
+    emit SetSwapPool(pool, dlpToken);
   }
 
   function setNftMgr(address _nftMgr) external onlyOwner {
+    address old = address(nft);
     nft = ISwapNFT(_nftMgr);
+    emit SetSwapNFT(old, _nftMgr);
   }
 
   function setDuration(uint _duration) external onlyOwner {
@@ -67,6 +79,12 @@ contract DlpStaker is OwnableUpgradeable {
 
   function setDlpTokenImpl(address _dlpTokenImpl) external onlyOwner {
     dlpTokenFab.setDlpTokenImpl(_dlpTokenImpl);
+    emit SetDlpTokenImpl(address(dlpTokenFab.dlpTokenImpl()), _dlpTokenImpl);
+  }
+
+  function setRewardsController(address _rewardsCtrler) external onlyOwner {
+    dlpTokenFab.setRewardsCtrler(_rewardsCtrler);
+    emit SetRewardsController(address(dlpTokenFab.rewardsCtrler()), _rewardsCtrler);
   }
 
   function lockLiquidity(address user, address pool, uint liquidity, uint tokenId) external onlyZap {

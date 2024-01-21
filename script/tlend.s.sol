@@ -12,7 +12,7 @@ import {Leverager} from "src/leverager.sol";
 import {Stargater} from "src/stargate.sol";
 import {DlpStaker} from "src/stake.sol";
 import {DlpToken, DlpTokenFab} from "src/dlp.sol";
-import {DeployAAVE} from "./aave.s.sol";
+import {DeployAAVE, IPoolAddressesProvider} from "./aave.s.sol";
 
 contract DeployTLend is DeployAAVE {
   //////////////////////////////////////////////////////////////////////////
@@ -56,13 +56,14 @@ contract DeployTLend is DeployAAVE {
       abi.encodeWithSignature("initialize(address,address)", swapNFT, address(dlpTokenFab))
     );
     staker = DlpStaker(payable(address(proxy)));
+    dlpTokenFab.transferOwnership(address(staker));
   }
 
   function _deploy_stargate() internal {
     address pool = addressesProvider.getPool();
     bytes memory data = abi.encodeWithSignature(
       "initialize(address,address,address,address,address,uint256,uint256)",
-      stargater,
+      stargateRouter,
       stargateETHRouter,
       pool,
       address(weth),
@@ -84,7 +85,7 @@ contract DeployTLend is DeployAAVE {
       "initialize(address,address,address,uint256)", pool, address(weth), daoTreasury, 0
     );
     TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(
-      address(new Stargater()),
+      address(new Leverager()),
       deployer,
       data
     );
@@ -93,7 +94,8 @@ contract DeployTLend is DeployAAVE {
 
   function _deploy_dlp() internal {
     DlpToken dlpTokenImpl = new DlpToken();
-    dlpTokenFab = new DlpTokenFab(address(staker), address(dlpTokenImpl));
+    address incentivesController = addressesProvider.getAddress(keccak256("INCENTIVES_CONTROLLER"));
+    dlpTokenFab = new DlpTokenFab(incentivesController, address(dlpTokenImpl));
   }
 
   function _deploy_sets() internal {
@@ -121,8 +123,10 @@ contract DeployTLend is DeployAAVE {
     _deploy_dlp();
     _deploy_staker();
     _deploy_zap();
-    _deploy_stargate();
-    // _deploy_leverage();
+    if (!is_test) {
+      _deploy_stargate();
+    }
+    _deploy_leverage();
 
     _deploy_set_provider_addresses();
     _deploy_sets();
@@ -134,6 +138,7 @@ contract DeployTLend is DeployAAVE {
     swapRouter = vm.envAddress("SWAP_ROUTER");
     stargateRouter = vm.envAddress("STARGATE_ROUTER");
     stargateETHRouter = vm.envAddress("STARGATE_ETH_ROUTER");
+    addressesProvider = IPoolAddressesProvider(vm.envAddress("ADDRESSES_PROVIDER"));
   }
 
   function _run() internal virtual override {

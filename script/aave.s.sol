@@ -13,7 +13,7 @@ import {AaveEcosystemReserveController} from
   "@aave/periphery-v3/contracts/treasury/AaveEcosystemReserveController.sol";
 import {InitializableAdminUpgradeabilityProxy} from
   "@aave/core-v3/contracts/dependencies/openzeppelin/upgradeability/InitializableAdminUpgradeabilityProxy.sol";
-import {PoolAddressesProvider} from
+import {PoolAddressesProvider, IPoolAddressesProvider} from
   "@aave/core-v3/contracts/protocol/configuration/PoolAddressesProvider.sol";
 import {AaveProtocolDataProvider} from "@aave/core-v3/contracts/misc/AaveProtocolDataProvider.sol";
 import {WETH9Mocked} from "@aave/core-v3/contracts/mocks/tokens/WETH9Mocked.sol";
@@ -84,7 +84,7 @@ contract DeployAAVE is ReservConfig, Script {
   PoolAddressesProviderRegistry public registry;
   InitializableAdminUpgradeabilityProxy public treasuryProxy;
   // InitializableAdminUpgradeabilityProxy public stakeProxy;
-  PoolAddressesProvider addressesProvider;
+  IPoolAddressesProvider addressesProvider;
   ReservesSetupHelper helper;
   L2Encoder l2Encoder;
   MockFlashLoanReceiver flashLoanReceiver;
@@ -112,7 +112,7 @@ contract DeployAAVE is ReservConfig, Script {
   }
 
   function _deploy_addresses_provider() internal {
-    addressesProvider = new PoolAddressesProvider(market_name, deployer);
+    addressesProvider = IPoolAddressesProvider(new PoolAddressesProvider(market_name, deployer));
     registry.registerAddressesProvider(address(addressesProvider), 1);
     addressesProvider.setMarketId(market_name);
     AaveProtocolDataProvider dataProvider = new AaveProtocolDataProvider(addressesProvider);

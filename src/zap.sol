@@ -70,6 +70,11 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
     uint _amountB
   );
 
+  event SetLendingPool(address indexed old, address indexed new_);
+  event SetSwapRouter(address indexed old, address indexed new_);
+  event SetSwapNFT(address indexed old, address indexed new_);
+  event SetStaker(address indexed old, address indexed new_);
+
   /**
    * Errors **********************
    */
@@ -103,22 +108,30 @@ contract Zap is Initializable, OwnableUpgradeable, PausableUpgradeable {
 
   function setLendingPool(address _lendingPool) external onlyOwner {
     if (_lendingPool == address(0)) revert AddressZero();
+    address old = address(lendingPool);
     lendingPool = IPool(_lendingPool);
+    emit SetLendingPool(old, address(lendingPool));
   }
 
   function setSwapRouter(address _swapRouter) external onlyOwner {
     if (_swapRouter == address(0)) revert AddressZero();
+    address old = address(swapRouter);
     swapRouter = ISwapRouter(_swapRouter);
+    emit SetSwapRouter(old, address(swapRouter));
   }
 
   function setLiquidityMgr(address _nft) external onlyOwner {
     if (_nft == address(0)) revert AddressZero();
+    address old = address(nft);
     nft = ISwapNFT(_nft);
+    emit SetSwapNFT(old, address(nft));
   }
 
   function setStaker(address _staker) external onlyOwner {
     if (_staker == address(0)) revert AddressZero();
+    address old = address(staker);
     staker = IStaker(_staker);
+    emit SetStaker(old, address(staker));
   }
 
   /**

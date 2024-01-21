@@ -47,6 +47,9 @@ contract Leverager is OwnableUpgradeable {
   /// @notice Emitted when treasury is updated
   event TreasuryUpdated(address indexed _treasury);
 
+  event Loop(address who, address indexed asset, uint amount, uint rateMode, uint loopCount);
+  event LoopETH(address who, uint amount, uint rateMode, uint loopCount);
+
   error AddressZero();
 
   error ReceiveNotAllowed();
@@ -219,6 +222,7 @@ contract Leverager is OwnableUpgradeable {
         i++;
       }
     }
+    emit Loop(msg.sender, asset, amount, interestRateMode, loopCount);
   }
 
   /**
@@ -277,6 +281,7 @@ contract Leverager is OwnableUpgradeable {
         i++;
       }
     }
+    emit LoopETH(msg.sender, amount, interestRateMode, loopCount);
   }
 
   /**

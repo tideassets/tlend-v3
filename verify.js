@@ -76,12 +76,12 @@ contracts.forEach((contract) => {
   }
 
   // 执行命令
-  if (contract.name == "AaveOracle") {
-    ok = false;
-  }
-  if (ok) {
-    return;
-  }
+  // if (contract.name == "AaveOracle") {
+  //   ok = false;
+  // }
+  // if (ok) {
+  //   return;
+  // }
   console.log(`${command}`);
   const output = execSync(command);
   console.log(`${output}`);
