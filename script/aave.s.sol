@@ -79,6 +79,7 @@ contract DeployAAVE is ReservConfig, Script {
   uint chainId;
   address public TTL;
   address public TTL_VAULT;
+  uint public TTL_emissionPerSecond;
 
   PoolAddressesProviderRegistry public registry;
   InitializableAdminUpgradeabilityProxy public treasuryProxy;
@@ -121,7 +122,10 @@ contract DeployAAVE is ReservConfig, Script {
   function _deploy_test_tokens() internal {
     for (uint i = 0; i < reserveSymbols.length; i++) {
       string memory symbol = reserveSymbols[i];
-      address addr;
+      address addr = reserveAddresses[symbol][network];
+      if (addr != address(0)) {
+        continue;
+      }
       if (eqS(symbol, native)) {
         WETH9Mocked mweth = new WETH9Mocked();
         addr = address(mweth);
@@ -190,9 +194,6 @@ contract DeployAAVE is ReservConfig, Script {
   function _deploy_pool_config() internal {
     PoolConfigurator configurator = new PoolConfigurator();
     addressesProvider.setPoolConfiguratorImpl(address(configurator));
-    address configProxy = addressesProvider.getPoolConfigurator();
-    PoolConfigurator(configProxy).updateFlashloanPremiumTotal(5);
-    PoolConfigurator(configProxy).updateFlashloanPremiumToProtocol(4);
     helper = new ReservesSetupHelper();
   }
 
@@ -219,78 +220,85 @@ contract DeployAAVE is ReservConfig, Script {
     addressesProvider.setPriceOracle(address(oracle));
   }
 
+  function _deploy_init_pool() internal {
+    address configProxy = addressesProvider.getPoolConfigurator();
+    PoolConfigurator(configProxy).updateFlashloanPremiumTotal(5);
+    PoolConfigurator(configProxy).updateFlashloanPremiumToProtocol(4);
+  }
+
   function _deploy_incentives() internal {
     RewardsController ctrlImpl = new RewardsController();
     EmissionManager mgr = new EmissionManager(address(0), deployer);
     bytes memory data = abi.encodeWithSignature("initialize(address)", address(mgr));
     InitializableAdminUpgradeabilityProxy proxy = new InitializableAdminUpgradeabilityProxy();
     proxy.initialize(address(ctrlImpl), deployer, data);
-    RewardsController ctrl = RewardsController(address(proxy));
-
     bytes32 ctrl_hash = keccak256("INCENTIVES_CONTROLLER");
-    addressesProvider.setAddress(ctrl_hash, address(ctrl));
-    mgr.setRewardsController(address(ctrl));
+    addressesProvider.setAddress(ctrl_hash, address(proxy));
+    mgr.setRewardsController(address(proxy));
+    mgr.setEmissionAdmin(TTL, deployer);
+
+    RewardsController ctrl = RewardsController(address(proxy));
     PullRewardsTransferStrategy pullStrategy =
       new PullRewardsTransferStrategy(address(ctrl), deployer, TTL_VAULT);
-    ctrl.setTransferStrategy(TTL, pullStrategy);
+    mgr.setTransferStrategy(TTL, pullStrategy);
   }
 
   function _new_aToken() internal {
     IPool pool = IPool(addressesProvider.getPool());
     aToken = new AToken(pool);
-    aToken.initialize(
-      pool,
-      address(0),
-      address(0),
-      IAaveIncentivesController(address(0)),
-      0,
-      "ATOKEN_IMPL",
-      "ATOKEN_IMPL",
-      ""
-    );
+    // aToken.initialize(
+    //   pool,
+    //   address(0),
+    //   address(0),
+    //   IAaveIncentivesController(address(0)),
+    //   0,
+    //   "ATOKEN_IMPL",
+    //   "ATOKEN_IMPL",
+    //   ""
+    // );
   }
 
   function _new_delegation_aToken() internal {
     IPool pool = IPool(addressesProvider.getPool());
     dToken = new DelegationAwareAToken(pool);
-    dToken.initialize(
-      pool,
-      address(0),
-      address(0),
-      IAaveIncentivesController(address(0)),
-      0,
-      "DELEGATION_AWARE_ATOKEN_IMPL",
-      "DELEGATION_AWARE_ATOKEN_IMPL",
-      ""
-    );
+    // dToken.initialize(
+    //   pool,
+    //   address(0),
+    //   address(0),
+    //   IAaveIncentivesController(address(0)),
+    //   0,
+    //   "DELEGATION_AWARE_ATOKEN_IMPL",
+    //   "DELEGATION_AWARE_ATOKEN_IMPL",
+    //   ""
+    // );
   }
 
   function _new_stable_debt_token() internal {
     IPool pool = IPool(addressesProvider.getPool());
     sToken = new StableDebtToken(pool);
-    sToken.initialize(
-      pool,
-      address(0),
-      IAaveIncentivesController(address(0)),
-      0,
-      "STABLE_DEBT_TOKEN_IMPL",
-      "STABLE_DEBT_TOKEN_IMPL",
-      ""
-    );
+    // sToken.initialize(
+    //   pool,
+    //   address(0),
+    //   IAaveIncentivesController(address(0)),
+    //   0,
+    //   "STABLE_DEBT_TOKEN_IMPL",
+    //   "STABLE_DEBT_TOKEN_IMPL",
+    //   ""
+    // );
   }
 
   function _new_variable_debt_token() internal {
     IPool pool = IPool(addressesProvider.getPool());
     vToken = new VariableDebtToken(pool);
-    vToken.initialize(
-      pool,
-      address(0),
-      IAaveIncentivesController(address(0)),
-      0,
-      "VARIABLE_DEBT_TOKEN_IMPL",
-      "VARIABLE_DEBT_TOKEN_IMPL",
-      ""
-    );
+    // vToken.initialize(
+    //   pool,
+    //   address(0),
+    //   IAaveIncentivesController(address(0)),
+    //   0,
+    //   "VARIABLE_DEBT_TOKEN_IMPL",
+    //   "VARIABLE_DEBT_TOKEN_IMPL",
+    //   ""
+    // );
   }
 
   function _deploy_token_impl() internal {
@@ -504,10 +512,10 @@ contract DeployAAVE is ReservConfig, Script {
         asset: asset,
         treasury: daoTreasury,
         incentivesController: addressesProvider.getAddress(keccak256("INCENTIVES_CONTROLLER")),
-        name: string(abi.encodePacked("tlend aToken ", symbol)),
+        name: string(abi.encodePacked("tLend aToken ", symbol)),
         symbol: string(abi.encodePacked("a", symbol)),
         implementation: address(_aToken),
-        params: "0x10"
+        params: ""
       });
       configurator.updateAToken(input);
     }
@@ -521,13 +529,15 @@ contract DeployAAVE is ReservConfig, Script {
       _deploy_test_tokens();
       _deploy_price_feeds();
     }
-    _deploy_pool();
     if (l2_suppored) {
       _deploy_l2_pool();
+    } else {
+      _deploy_pool();
     }
     _deploy_pool_config();
     _deploy_acl();
     _deploy_oracle();
+    _deploy_init_pool();
     _deploy_incentives();
     _deploy_token_impl();
     _deploy_init_reserves();
@@ -537,7 +547,7 @@ contract DeployAAVE is ReservConfig, Script {
     _deploy_setup_isomode();
     _deploy_setup_emode();
     _deploy_setup_liquidation_protocol_fee();
-    _deploy_update_atoken();
+    // _deploy_update_atoken();
   }
 
   function _before() internal virtual {
@@ -552,6 +562,7 @@ contract DeployAAVE is ReservConfig, Script {
     chainId = vm.envUint("CHAIN_ID");
     TTL = vm.envAddress("TTL");
     TTL_VAULT = vm.envAddress("TTL_VAULT");
+    TTL_emissionPerSecond = vm.envUint("TTL_EPS");
 
     _init();
   }
